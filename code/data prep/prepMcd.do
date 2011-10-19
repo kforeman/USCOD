@@ -93,10 +93,10 @@ Purpose:	create cause of death numbers by county and state from MCD data
 	generate countyFips = substr(fips,3,3)
 
 // save causes of death by county
-	save "`projDir'/data/cod/clean/countyDeaths.dta", replace
+	save "`projDir'/data/cod/clean/deaths/countyDeaths.dta", replace
 
 // collapse to deaths by state
 	collapse (sum) deaths, by(stateFips sex age year cod)
 
 // save causes of death by state
-	save "`projDir'/data/cod/clean/stateDeaths.dta", replace
+	save "`projDir'/data/cod/clean/deaths/stateDeaths.dta", replace
