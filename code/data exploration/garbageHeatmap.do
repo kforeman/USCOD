@@ -39,13 +39,21 @@ Purpose:	Check how much garbage there is by age/year and state/year
 	// find proportion of garbage
 		bysort year stateFips: egen garbage_ = pc(deaths), prop
 		keep if cod == "GC"
-	
+		
 	// reshape into a heatmap
 		drop deaths cod
 		reshape wide garbage_, i(stateFips) j(year)
-
+	
 	// add on state postal codes
-		merge 1:m stateFips using "`projDir'/data/geo/clean/fipsMap.dta", keep(match) nogen
+		preserve
+			use "`projDir'/data/geo/clean/fipsMap.dta", clear
+			duplicates drop stateFips, force
+			tempfile states
+			save `states', replace
+		restore
+		merge 1:m stateFips using `states', keep(match) keepusing(state) nogen
+		drop stateFips
+		order state
 		
 	// save the heatmap
 		outsheet using "`projDir'/outputs/data exploration/garbage/garbage heatmap by state.csv", comma replace
