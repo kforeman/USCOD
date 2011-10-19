@@ -27,11 +27,17 @@ Purpose:	create cause of death numbers by county and state from MCD data
 	// convert age to the correct format
 		quietly {
 			generate age = .
-			replace age = floor(real(substr(age_detail,2,2))/5)*5 if substr(age_detail,1,1) == "0"
 			replace age = 0 if inlist(substr(age_detail,1,1), "2", "3", "4", "5", "6")
-			replace age = 85 if substr(age_detail,1,1) == "1" | (age > 85 & age != .)
+			if `y' >= 2003 {
+				replace age = floor(real(substr(age_detail,2,3))/5)*5 if substr(age_detail,1,1) == "1"
+				replace age = 85 if (age > 85 & age != .)
+			}
+			else { 
+				replace age = floor(real(substr(age_detail,2,2))/5)*5 if substr(age_detail,1,1) == "0"
+				replace age = 85 if substr(age_detail,1,1) == "1" | (age > 85 & age != .)
+			}
 		}
-	
+
 	// use Sandeep's code to convert to appropriate FIPS codes
 		quietly do "$merge/sandeepsFipsFixer.do" `y'
 	
