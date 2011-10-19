@@ -39,7 +39,7 @@ Purpose:	create cause of death numbers by county and state from MCD data
 		}
 
 	// use Sandeep's code to convert to appropriate FIPS codes
-		quietly do "$merge/sandeepsFipsFixer.do" `y'
+		quietly do "`projDir'/code/data prep/sandeepsFipsFixer.do" `y'
 	
 	// convert ICD9 codes to COD
 		if inrange( `y', 1979, 1998 ) {
