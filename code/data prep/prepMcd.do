@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
 Created:	18 Oct 2011
-Updated:	18 Oct 2011
+Updated:	19 Oct 2011
 Purpose:	create cause of death numbers by county and state from MCD data
 */
 
