@@ -1,3 +1,5 @@
+/* Note: this code is taken from Sandeep Kulkarni's USBOD project, modified slightly for some small bug fixes */
+
 pause on
 // For use with "format_mort.do"
 
