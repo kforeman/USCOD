@@ -93,6 +93,12 @@ pause on
 		drop if stateres	> 56				/* drop residents outside of 51 states */
 		drop if countyres	== 0			/* drop foreign residents */
 		drop if stateres	== 0				/* drop foreign residents */
+		
+		
+		// 1991 has the state code appended to the county for some reason
+		if `1' == 1991 replace countyres = substr(countyres,3,3)
+		
+		
 		tostring countyres, replace
 		tostring stateres, replace
 		gen lenst=length(stateres)
