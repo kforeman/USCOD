@@ -11,7 +11,7 @@ Purpose:	Check how much garbage there is by age/year and state/year
 	else local projDir "/shared/projects/`proj'"
 
 // load in cause of death data by state
-	use "`projDir'/data/cod/clean/deaths/stateDeaths.dta", clear
+	use "`projDir'/data/cod/clean/deaths by COD/stateDeaths.dta", clear
 	keep if inrange(age, 0, 85)
 
 // find garbage/non-garbage deaths by state/age/year
