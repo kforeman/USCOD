@@ -12,6 +12,7 @@ Purpose:	Check how much garbage there is by age/year and state/year
 
 // load in cause of death data by state
 	use "`projDir'/data/cod/clean/deaths/stateDeaths.dta", clear
+	keep if inrange(age, 0, 85)
 
 // find garbage/non-garbage deaths by state/age/year
 	replace cod = "OK" if cod != "GC"
