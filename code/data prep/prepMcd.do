@@ -56,7 +56,7 @@ Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 
 	// rename the ICD code variable to "cause"
 		if inrange( `y', 1979, 1998 ) rename icd9 cause
-		else if inrange( `y', 1999, 2001) rename icd10 cause
+		else if inrange( `y', 1999, 2001 ) rename icd10 cause
 
 	// make a column to count how many deaths there are
 		quietly generate deaths = 1
