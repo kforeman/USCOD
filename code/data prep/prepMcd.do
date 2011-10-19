@@ -2,7 +2,7 @@
 Author:		Kyle Foreman
 Created:	18 Oct 2011
 Updated:	19 Oct 2011
-Purpose:	create cause of death numbers by county and state from MCD data
+Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 */
 
 // setup directory info for this project
@@ -40,18 +40,6 @@ Purpose:	create cause of death numbers by county and state from MCD data
 
 	// use Sandeep's code to convert to appropriate FIPS codes
 		quietly do "`projDir'/code/data prep/sandeepsFipsFixer.do" `y'
-	
-	// convert ICD9 codes to COD
-		if inrange( `y', 1979, 1998 ) {
-			rename icd9 cause
-			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD9_to_COD.dta", keep(match)
-		}
-	
-	// convert ICD10 codes to COD
-		else if `y' >= 1999 {
-			if inrange( `y', 1999, 2001) rename icd10 cause
-			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD10_to_COD.dta", keep(match)
-		}
 
 	// make sure sex is in the right format
 		capture confirm numeric variable sex
@@ -66,43 +54,21 @@ Purpose:	create cause of death numbers by county and state from MCD data
 			else replace sex = . if !inlist( sex, 1, 2 )
 		}
 
-	// find counts of deaths by cause/age/sex/fips
+	// rename the ICD code variable to "cause"
+		if inrange( `y', 1979, 1998 ) rename icd9 cause
+		else if inrange( `y', 1999, 2001) rename icd10 cause
+
+	// make a column to count how many deaths there are
 		quietly generate deaths = 1
-		collapse (count) deaths, by(cod age sex fips)
+
+	// find counts of deaths by cause/age/sex/fips
+		collapse (sum) deaths, by(cause age sex fips)
 	
 	// add year to the data
 		quietly generate year = `y'
 	
-	// save a tempfile for this year
+	// save the prepped data for this year
+		keep cause age sex fips deaths year
 		quietly compress
-		tempfile cod`y'
-		save `cod`y'', replace
+		save "`projDir'/data/cod/clean/deaths by ICD/deaths`y'.dta", replace
 	}
-
-// put the pieces together
-	clear
-	forvalues y = `startYear' / `endYear' {
-		append using `cod`y''
-	}
-
-// add in total deaths across ages
-	preserve
-	collapse (sum) deaths, by(cod year sex fips)
-	generate age = 99
-	tempfile allAges
-	save `allAges', replace
-	restore
-	append using `allAges'
-
-// split FIPS into state/county
-	generate stateFips = substr(fips,1,2)
-	generate countyFips = substr(fips,3,3)
-
-// save causes of death by county
-	save "`projDir'/data/cod/clean/deaths/countyDeaths.dta", replace
-
-// collapse to deaths by state
-	collapse (sum) deaths, by(stateFips sex age year cod)
-
-// save causes of death by state
-	save "`projDir'/data/cod/clean/deaths/stateDeaths.dta", replace
