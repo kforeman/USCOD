@@ -39,7 +39,7 @@ Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 		}
 
 	// use Sandeep's code to convert to appropriate FIPS codes
-		quietly do "`projDir'/code/data prep/sandeepsFipsFixer.do" `y'
+		quietly do "`projDir'/code/data prep/geo/sandeepsFipsFixer.do" `y'
 
 	// make sure sex is in the right format
 		capture confirm numeric variable sex
