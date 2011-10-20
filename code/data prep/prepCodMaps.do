@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
 Created:	18 Oct 2011
-Updated:	18 Oct 2011
+Updated:	20 Oct 2011
 Purpose:	create maps for ICD to CoD (using GBD codes as intermediaries)
 */
 
@@ -121,28 +121,6 @@ Purpose:	create maps for ICD to CoD (using GBD codes as intermediaries)
 // for now leave garbage codes as is
 	replace cod = "GC" if cod == ""
 	replace codName = "Garbage Code" if cod == "GC"
-
-// it appears that the "E" is not included at the front of injury codes in the MCD data, so to be safe create versions both with and without the "E"
-	preserve
-	keep if substr(cause,1,1) == "E"
-	replace cause = substr(cause,2,.)
-	tempfile noE
-	save `noE', replace
-	restore
-	append using `noE'
-
-// there are a couple of extra HIV codes in US MCD that don't appear to be in Mohsen's map, so add those manually
-	preserve
-	keep if cause == "042"
-	expand 31
-	replace cause = "043" in 1
-	forvalues i = 2 / 31 {
-		replace cause = "04" + string(`i' + 18) in `i'
-	}
-	tempfile hiv
-	save `hiv', replace
-	restore
-	append using `hiv'	
 
 // keep just the important stuff
 	keep cause cod codName
