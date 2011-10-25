@@ -24,13 +24,16 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	
 	// convert ICD9 codes to COD
 		if inrange( `y', `startYear', `icdSwitchYear'-1 ) {
-			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD9_to_USCOD.dta", keep(match)
+			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD9_to_USCOD.dta", keep(match master)
 		}
 	
 	// convert ICD10 codes to COD
 		else if inrange( `y', `icdSwitchYear', `endYear') {
-			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD10_to_USCOD.dta", keep(match)
+			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD10_to_USCOD.dta", keep(match master)
 		}
+
+	// any ICD codes that are missing from our map (i.e. are probably typos) put down as ill-defined
+		replace uscod = "G.5" if uscod == ""
 
 	// find counts of deaths by COD/age/sex/fips/year
 		collapse (sum) deaths, by(uscod age sex fips year)
