@@ -17,6 +17,10 @@ Purpose:	create a stata merge map of ICD10 codes to USCOD
 // remove decimals from ICD codes
 	replace cause = regexr(cause, "\.", "")
 
+// remove duplicates
+	duplicates drop cause uscod, force
+	duplicates report
+
 // save in Stata format
 	compress
 	save "`projDir'/data/cod/clean/COD maps/ICD10_to_USCOD.dta", replace
