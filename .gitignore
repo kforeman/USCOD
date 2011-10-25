@@ -1,4 +1,3 @@
 /data
 /outputs
-!/data/cod/raw/COD maps/ICD*_to_GBD.dta
-!/data/cod/raw/COD maps/GBD_to_COD.dta
+!/data/cod/raw/COD maps/ICD9and10_to_USCOD.xlsx
