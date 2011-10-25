@@ -17,8 +17,12 @@ Purpose:	make rough plots of ICD discontinuities
 // collapse down to national trends
 	collapse (sum) deaths, by(uscod year)
 
+// add on cause names
+	merge m:1 uscod using "`projDir'/data/cod/clean/COD Maps/USCOD_names.dta", keep(match)
+	generate name = uscod + " " + uscodName
+
 // plot national trends
-	scatter deaths year, by(uscod, compact yrescale)
-		
+	scatter deaths year, by(name, compact yrescale) xline(1998.5)
+
 // save the graph
 	graph export "`projDir'/outputs/data exploration/garbage/icdDiscontinuities.pdf", replace
