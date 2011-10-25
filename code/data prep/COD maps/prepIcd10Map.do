@@ -18,6 +18,7 @@ Purpose:	create a stata merge map of ICD10 codes to USCOD
 	replace cause = regexr(cause, "\.", "")
 
 // remove duplicates
+	drop if uscod == "0"
 	duplicates drop cause uscod, force
 	duplicates report
 
