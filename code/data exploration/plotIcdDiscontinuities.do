@@ -22,7 +22,7 @@ Purpose:	make rough plots of ICD discontinuities
 	generate name = uscod + " " + uscodName
 
 // plot national trends
-	scatter deaths year, by(name, compact yrescale) xline(1998.5)
+	scatter deaths year, by(name, yrescale) xline(1998.5)
 
 // save the graph
 	graph export "`projDir'/outputs/data exploration/garbage/icdDiscontinuities.pdf", replace
