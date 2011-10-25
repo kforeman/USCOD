@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
 Created:	18 Oct 2011
-Updated:	19 Oct 2011
+Updated:	25 Oct 2011
 Purpose:	convert ICD to COD and save aggregated datasets by county/state
 */
 
@@ -11,8 +11,9 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	else local projDir "/shared/projects/`proj'"
 
 // setup parameters specific to this code
-	local startYear = 	1979
-	local endYear = 	2007
+	local startYear = 		1979
+	local endYear = 		2007
+	local icdSwitchYear =	1999
 
 // loop through the years
 	forvalues y = `startYear' / `endYear' {
@@ -22,17 +23,17 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 		use "`projDir'/data/cod/clean/deaths by ICD/deaths`y'.dta", clear
 	
 	// convert ICD9 codes to COD
-		if inrange( `y', 1979, 1998 ) {
-			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD9_to_COD.dta", keep(match)
+		if inrange( `y', `startYear', `icdSwitchYear'-1 ) {
+			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD9_to_USCOD.dta", keep(match)
 		}
 	
 	// convert ICD10 codes to COD
-		else if `y' >= 1999 {
-			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD10_to_COD.dta", keep(match)
+		else if inrange( `y', `icdSwitchYear', `endYear') {
+			merge m:1 cause using "`projDir'/data/cod/clean/COD maps/ICD10_to_USCOD.dta", keep(match)
 		}
 
 	// find counts of deaths by COD/age/sex/fips/year
-		collapse (sum) deaths, by(cod age sex fips year)
+		collapse (sum) deaths, by(uscod age sex fips year)
 	
 	// save a tempfile for this year
 		quietly compress
@@ -48,7 +49,7 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 
 // add in total deaths across ages
 	preserve
-		collapse (sum) deaths, by(cod year sex fips)
+		collapse (sum) deaths, by(uscod year sex fips)
 		generate age = 99
 		tempfile allAges
 		save `allAges', replace
@@ -60,10 +61,10 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	generate countyFips = substr(fips,3,3)
 
 // save causes of death by county
-	save "`projDir'/data/cod/clean/deaths by COD/countyDeaths.dta", replace
+	save "`projDir'/data/cod/clean/deaths by USCOD/countyDeaths.dta", replace
 
 // collapse to deaths by state
-	collapse (sum) deaths, by(stateFips sex age year cod)
+	collapse (sum) deaths, by(stateFips sex age year uscod)
 
 // save causes of death by state
-	save "`projDir'/data/cod/clean/deaths by COD/stateDeaths.dta", replace
+	save "`projDir'/data/cod/clean/deaths by USCOD/stateDeaths.dta", replace

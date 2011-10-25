@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
 Created:	18 Oct 2011
-Updated:	19 Oct 2011
+Updated:	25 Oct 2011
 Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 */
 
@@ -11,8 +11,9 @@ Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 	else local projDir "/shared/projects/`proj'"
 
 // setup parameters specific to this code
-	local startYear = 	1979
-	local endYear = 	2007
+	local startYear = 		1979
+	local endYear = 		2007
+	local icdSwitchYear =	1999
 
 // in order to use Sandeep's code for fixing FIPS codes, need to specify where all his stuff is located
 	global merge "`projDir'/data/geo/raw/sandeeps merge maps/"
@@ -55,8 +56,8 @@ Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 		}
 
 	// rename the ICD code variable to "cause"
-		if inrange( `y', 1979, 1998 ) rename icd9 cause
-		else if inrange( `y', 1999, 2001 ) rename icd10 cause
+		if inrange( `y', `startYear', `icdSwitchYear'-1) rename icd9 cause
+		else if inrange( `y', `icdSwitchYear', 2001) rename icd10 cause
 
 	// make a column to count how many deaths there are
 		quietly generate deaths = 1
