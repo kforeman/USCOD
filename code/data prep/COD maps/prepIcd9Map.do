@@ -12,6 +12,7 @@ Purpose:	create a stata merge map of ICD9 codes to USCOD
 
 // load in the ICD9 map
 	import excel using "`projDir'/data/cod/raw/COD maps/ICD9and10_to_USCOD.xlsx", clear sheet("ICD9 to USCOD for stata") firstrow allstring
+	rename USCOD uscod
 
 // remove E prefix from injury codes
 	replace cause = regexr(cause, "E", "")

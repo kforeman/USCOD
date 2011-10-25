@@ -12,6 +12,7 @@ Purpose:	create a stata merge map of ICD10 codes to USCOD
 
 // load in the ICD10 map
 	import excel using "`projDir'/data/cod/raw/COD maps/ICD9and10_to_USCOD.xlsx", clear sheet("ICD10 to USCOD for stata") firstrow allstring
+	rename USCOD uscod
 
 // remove decimals from ICD codes
 	replace cause = regexr(cause, "\.", "")
