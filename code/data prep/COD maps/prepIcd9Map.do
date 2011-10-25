@@ -25,6 +25,9 @@ Purpose:	create a stata merge map of ICD9 codes to USCOD
 	duplicates drop cause uscod, force
 	duplicates report
 
+// get rid of excess spaces
+	replace cause = trim(cause)
+
 // save in Stata format
 	compress
 	save "`projDir'/data/cod/clean/COD maps/ICD9_to_USCOD.dta", replace
