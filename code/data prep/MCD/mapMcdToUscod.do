@@ -54,11 +54,13 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	generate stateFips = substr(fips,1,2)
 	generate countyFips = substr(fips,3,3)
 
-// save causes of death by county
+// save deaths by county
 	save "`projDir'/data/cod/clean/deaths by USCOD/countyDeaths.dta", replace
 
+// create cause fractions (wide) dataset
+	bysort countyFips sex age year: egen cf_ = pc(deaths), prop
+
 // collapse to deaths by state
-	preserve
 	collapse (sum) deaths, by(stateFips sex age year uscod)
 
 // save causes of death by state
