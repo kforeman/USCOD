@@ -15,8 +15,8 @@ Purpose:	test redistribution regression idea on HF
 	local targetList 		B_3_1 B_3_2 B_3_3
 	local garbage	 		G_2
 
-// load in (lets just do state for now...) data
-	use "`projDir'/data/cod/clean/deaths by USCOD/stateCFs.dta", clear
+// load in data
+	use "`projDir'/data/cod/clean/deaths by USCOD/countyCFs.dta", clear
 
 // for now just use ICD9 males
 	keep if year < `icdShiftYear' & sex == 1 & age != .
@@ -36,13 +36,19 @@ Purpose:	test redistribution regression idea on HF
 	foreach t of local targetList {
 	
 	// run a mixed effects regression to predict the logit CF of each target
-		xtmixed logitProp`t' year i.age || stateFips:
+		xtmixed logitProp`t' year i.age || stateFips: || countyFips:
 	
 	// make predictions for this target
 		predict xb`t', xb
-		predict re`t', reff
-		replace re`t' = 0 if re`t' == .
-		generate estProp`t' = invlogit(xb`t' + re`t')
+		predict reState`t', reffects level(stateFips)
+		bysort stateFips: egen reStateMean`t' = mean(reState`t')
+		replace reState`t' = reStateMean`t' if reState`t' == .
+		replace reState`t' = 0 if reState`t' == .
+		predict reCounty`t', reffects level(countyFips)
+		bysort countyFips: egen reCountyMean`t' = mean(reCounty`t')
+		replace reCounty`t' = reCountyMean`t' if reCounty`t' == .
+		replace reCounty`t' = 0 if reCounty`t' == .
+		generate estProp`t' = invlogit(xb`t' + reState`t' + reCounty`t')
 	}
 
 // scale the targets so that they sum to 1
