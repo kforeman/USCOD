@@ -22,7 +22,10 @@ Purpose:	make rough plots of ICD discontinuities
 	generate name = uscod + " " + uscodName
 
 // plot national trends
+<<<<<<< HEAD
 	set scheme tufte
+=======
+>>>>>>> 25b2a8046340bc26410d051475f1142d15526004
 	scatter deaths year, by(name, yrescale) xline(1998.5)
 
 // save the graph

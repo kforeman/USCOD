@@ -50,15 +50,6 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 		append using `cod`y''
 	}
 
-// add in total deaths across ages
-	preserve
-		collapse (sum) deaths, by(uscod year sex fips)
-		generate age = 99
-		tempfile allAges
-		save `allAges', replace
-	restore
-	append using `allAges'
-
 // split FIPS into state/county
 	generate stateFips = substr(fips,1,2)
 	generate countyFips = substr(fips,3,3)
