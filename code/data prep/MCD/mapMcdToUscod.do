@@ -58,7 +58,21 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	save "`projDir'/data/cod/clean/deaths by USCOD/countyDeaths.dta", replace
 
 // collapse to deaths by state
+	preserve
 	collapse (sum) deaths, by(stateFips sex age year uscod)
 
 // save causes of death by state
 	save "`projDir'/data/cod/clean/deaths by USCOD/stateDeaths.dta", replace
+
+// create a wide version as well
+	restore
+	replace uscod = strtoname(uscod)
+	levelsof uscod, l(uscods) c
+	rename deaths deaths_
+	reshape wide deaths, i(countyFips stateFips sex age year) j(uscod) str
+	foreach u of local uscods {
+		replace deaths_`u' = 0 if deaths_`u' == .
+	}
+	save "`projDir'/data/cod/clean/deaths by USCOD/countyDeathsWide.dta", replace
+	collapse (sum) deaths_*, by(stateFips sex age year)
+	save "`projDir'/data/cod/clean/deaths by USCOD/stateDeathsWide.dta", replace
