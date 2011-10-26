@@ -33,7 +33,7 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 		}
 
 	// any ICD codes that are missing from our map (i.e. are probably typos) put down as ill-defined
-		replace uscod = "G.5" if uscod == ""
+		replace uscod = "G_5" if uscod == ""
 
 	// find counts of deaths by COD/age/sex/fips/year
 		collapse (sum) deaths, by(uscod age sex fips year)
@@ -56,25 +56,32 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 
 // save deaths by county
 	save "`projDir'/data/cod/clean/deaths by USCOD/countyDeaths.dta", replace
+	preserve
 
-// create cause fractions (wide) dataset
-	bysort countyFips sex age year: egen cf_ = pc(deaths), prop
+// create cause fractions (wide) by county
+	levelsof uscod, l(uscods) c
+	reshape wide deaths, i(fips sex age year) j(uscod `uscods') string
+	egen deathsTotal = rowtotal(deaths*)
+	foreach u of local uscods {
+		generate cf`u' = deaths`u' / deathsTotal
+		replace cf`u' = 0 if cf`u' == .
+	}
+	keep fips countyFips stateFips sex age year deathsTotal cf*
+	save "`projDir'/data/cod/clean/deaths by USCOD/countyCFs.dta", replace
 
 // collapse to deaths by state
+	restore
 	collapse (sum) deaths, by(stateFips sex age year uscod)
 
 // save causes of death by state
 	save "`projDir'/data/cod/clean/deaths by USCOD/stateDeaths.dta", replace
 
-// create a wide version as well
-	restore
-	replace uscod = strtoname(uscod)
-	levelsof uscod, l(uscods) c
-	rename deaths deaths_
-	reshape wide deaths, i(countyFips stateFips sex age year) j(uscod) str
+// create cause fractions (wide) by state
+	reshape wide deaths, i(stateFips sex age year) j(uscod `uscods') string
+	egen deathsTotal = rowtotal(deaths*)
 	foreach u of local uscods {
-		replace deaths_`u' = 0 if deaths_`u' == .
+		generate cf`u' = deaths`u' / deathsTotal
+		replace cf`u' = 0 if cf`u' == .
 	}
-	save "`projDir'/data/cod/clean/deaths by USCOD/countyDeathsWide.dta", replace
-	collapse (sum) deaths_*, by(stateFips sex age year)
-	save "`projDir'/data/cod/clean/deaths by USCOD/stateDeathsWide.dta", replace
+	keep stateFips sex age year deathsTotal cf*
+	save "`projDir'/data/cod/clean/deaths by USCOD/stateCFs.dta", replace
