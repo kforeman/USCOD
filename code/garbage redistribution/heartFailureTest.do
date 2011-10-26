@@ -23,6 +23,7 @@ Purpose:	test redistribution regression idea on HF
 
 // reshape wide
 
+
 // isolate "universe of heart failure" deaths
 	generate target = inlist(uscod, "`targetList'")
 	levelsof uscod if target, l(targets) c
