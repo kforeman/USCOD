@@ -12,48 +12,49 @@ Purpose:	test redistribution regression idea on HF
 
 // setup parameters specific to this code
 	local icdShiftYear =	1999
-	local targetList 		"B.3.1", "B.3.2", "B.3.3"
-	local garbage	 		"G.2"
+	local targetList 		B_3_1 B_3_2 B_3_3
+	local garbage	 		G_2
 
-// load in data
-	use "`projDir'/data/cod/clean/deaths by USCOD/stateDeaths.dta", clear
+// load in (lets just do state for now...) data
+	use "`projDir'/data/cod/clean/deaths by USCOD/stateCFs.dta", clear
 
 // for now just use ICD9 males
 	keep if year < `icdShiftYear' & sex == 1 & age != .
 
-// reshape wide
+// find the size of the target universe
+	generate universeCf = 0
+	foreach t of local targetList {
+		replace universeCf = universeCf + cf`t'
+	}
 
-
-// isolate "universe of heart failure" deaths
-	generate target = inlist(uscod, "`targetList'")
-	levelsof uscod if target, l(targets) c
-	generate garbage = "`garbage'"
-	keep if target | garbage
-
-// switch targets to cause fractions
-	bysort sex age year stateFips: egen cf = pc(deaths) if target, prop
-	generate logitCf = logit(cf)
+// find cause fractions as percentages of the universe
+	foreach t of local targetList {
+		generate logitProp`t' = logit(clip(cf`t' / universeCf, .001, .999))
+	}
 
 // loop through the targets
-	foreach t of local targets {
-		local tg = strtoname( "`t'" )
+	foreach t of local targetList {
 	
 	// run a mixed effects regression to predict the logit CF of each target
-		xtmixed logitCf year i.age || stateFips: if uscod == "`t'"
+		xtmixed logitProp`t' year i.age || stateFips:
 	
-	// make predictions for this cause
-		predict xb_`tg', xb
-		predict re_`tg', reff
-		replace re_`tg' = 0 if re_`tg' == .
-		generate estCf_`tg' = invlogit(xb_`tg' + re_`tg')
+	// make predictions for this target
+		predict xb`t', xb
+		predict re`t', reff
+		replace re`t' = 0 if re`t' == .
+		generate estProp`t' = invlogit(xb`t' + re`t')
 	}
 
 // scale the targets so that they sum to 1
-	egen totalEstCf = rowtotal(estCf_*)
-	foreach t of local targets {
-		local tg = strtoname( "`t'" )
-		
+	egen totalEstProp = rowtotal(estProp*)
+	foreach t of local targetList {
+		replace estProp`t' = estProp`t' / totalEstProp
 	}
 
-
+// redistribute the garbage code's CF onto the targets
+	foreach t of local targetList {
+		replace cf`t' = cf`t' + (estProp`t' * cf`garbage')
+	}
+	replace cf`garbage' = 0
+	
 
