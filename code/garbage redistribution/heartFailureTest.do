@@ -34,6 +34,7 @@ Purpose:	test redistribution regression idea on HF
 
 // loop through the targets
 	foreach t of local targetList {
+		di in red "Currently redistributing `garbage' onto `t'"
 	
 	// run a mixed effects regression to predict the logit CF of each target
 		xtmixed logitProp`t' year i.age || stateFips: || countyFips:
