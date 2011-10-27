@@ -51,7 +51,7 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 
 	// for each target, calculate the logit of its proportion of the universe
 		foreach t of local targets`p' {
-			generate logitProp`t' = logit(clip(cf`t' / universeProp, .001, .999))
+			generate logitProp`t' = logit(clip(cf`t' / universeProp, 1e-9, 1-1e-9))
 		}
 
 	// loop through the targets of the current redistribution package
@@ -59,20 +59,25 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 			di in red "Currently redistributing `name`p'' onto `t'"
 
 		// run the mixed effects regression
-			xtmixed logitProp`t' year i.age || stateFips: || countyFips:
+			capture xtmixed logitProp`t' year i.age || stateFips: || countyFips:
+		
+		// if the regression failed, it's mostly likely because it's trying to redistribute onto maternal or breast cancer for males, so just apply a proportion of 0 for this cause
+			if _rc generate estProp`t' = 0
 
 		// make predictions for this target
-			predict xb, xb
-			predict reState, reffects level(stateFips)
-			bysort stateFips: egen reStateMean = mean(reState)
-			replace reState = reStateMean if reState == .
-			replace reState = 0 if reState == .
-			predict reCounty, reffects level(countyFips)
-			bysort countyFips: egen reCountyMean = mean(reCounty)
-			replace reCounty = reCountyMean if reCounty == .
-			replace reCounty = 0 if reCounty == .
-			generate estProp`t' = invlogit(xb + reState + reCounty)
-			drop xb reState reStateMean reCounty reCountyMean
+			else {
+				predict xb, xb
+				predict reState, reffects level(stateFips)
+				bysort stateFips: egen reStateMean = mean(reState)
+				replace reState = reStateMean if reState == .
+				replace reState = 0 if reState == .
+				predict reCounty, reffects level(countyFips)
+				bysort countyFips: egen reCountyMean = mean(reCounty)
+				replace reCounty = reCountyMean if reCounty == .
+				replace reCounty = 0 if reCounty == .
+				generate estProp`t' = invlogit(xb + reState + reCounty)
+				drop xb reState reStateMean reCounty reCountyMean
+			}
 		}
 
 	// scale the targets so that they sum to 1
