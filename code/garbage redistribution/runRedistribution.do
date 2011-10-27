@@ -45,7 +45,8 @@ Purpose:	run the redistribution for both icd versions and sexes in parallel (Win
 			while `done' == 0 {
 				capture confirm file "icd`v'Sex`s'/garbageIcd`v'Sex`s'Finished.txt"
 				if _rc == 0 local done = 1
-				else sleep 30000
+				sleep 30000
+				display in yellow "." _c
 			}
 		}
 	}

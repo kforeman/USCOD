@@ -14,6 +14,7 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 
 // log the regression results
 	log using "`projDir'/logs/garbage redistribution/garbageIcd`2'Sex`1'.smcl", replace
+	di in red "Running redistribution algorithms for ICD `2', sex `1'" _n
 
 // load in GC RD data
 	import excel using "`projDir'/data/cod/raw/GC/garbageRedistribution.xlsx", clear sheet("Garbage") firstrow
@@ -57,27 +58,30 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 	// loop through the targets of the current redistribution package
 		foreach t of local targets`p' {
 			di in red "Currently redistributing `name`p'' onto `t'"
+		
+		// check to make sure there's data available to actually run the regression (e.g. there won't be for male maternal, for obvious reasons)
+			count if cf`t' != 0 & cf`t' != .
+			if `r(N)' <= 1 {
+				di "No target data" _n
+				generate estProp`t' = 0
+				continue
+			}
 
 		// run the mixed effects regression
-			capture xtmixed logitProp`t' year i.age || stateFips: || countyFips:
+			xtmixed logitProp`t' year i.age || stateFips: || countyFips:
 		
-		// if the regression failed, it's mostly likely because it's trying to redistribute onto maternal or breast cancer for males, so just apply a proportion of 0 for this cause
-			if _rc generate estProp`t' = 0
-
 		// make predictions for this target
-			else {
-				predict xb, xb
-				predict reState, reffects level(stateFips)
-				bysort stateFips: egen reStateMean = mean(reState)
-				replace reState = reStateMean if reState == .
-				replace reState = 0 if reState == .
-				predict reCounty, reffects level(countyFips)
-				bysort countyFips: egen reCountyMean = mean(reCounty)
-				replace reCounty = reCountyMean if reCounty == .
-				replace reCounty = 0 if reCounty == .
-				generate estProp`t' = invlogit(xb + reState + reCounty)
-				drop xb reState reStateMean reCounty reCountyMean
-			}
+			predict xb, xb
+			predict reState, reffects level(stateFips)
+			bysort stateFips: egen reStateMean = mean(reState)
+			replace reState = reStateMean if reState == .
+			replace reState = 0 if reState == .
+			predict reCounty, reffects level(countyFips)
+			bysort countyFips: egen reCountyMean = mean(reCounty)
+			replace reCounty = reCountyMean if reCounty == .
+			replace reCounty = 0 if reCounty == .
+			generate estProp`t' = invlogit(xb + reState + reCounty)
+			drop xb reState reStateMean reCounty reCountyMean
 		}
 
 	// scale the targets so that they sum to 1
