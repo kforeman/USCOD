@@ -77,7 +77,7 @@ Purpose:	redistribute garbage codes onto USCOD by county using a mixed effects r
 					replace reCounty = reCountyMean if reCounty == .
 					replace reCounty = 0 if reCounty == .
 					generate estProp`t' = invlogit(xb + reState + reCounty)
-					drop xb reState reCounty
+					drop xb reState reStateMean reCounty reCountyMean
 				}
 
 			// scale the targets so that they sum to 1
