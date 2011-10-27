@@ -12,7 +12,7 @@ Purpose:	test redistribution regression idea on HF
 
 // setup parameters specific to this code
 	local icdShiftYear =	1999
-	local targetList 		B_3_1 B_3_2 B_3_3
+	local targetList 		B_3_1 B_3_3
 	local garbage	 		G_2
 
 // load in data
