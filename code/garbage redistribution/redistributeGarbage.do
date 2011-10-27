@@ -68,7 +68,7 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 			}
 
 		// run the mixed effects regression
-			xtmixed logitProp`t' year i.age || stateFips: || countyFips:
+			xtmixed logitProp`t' year i.age || stateFips: || countyFips:, emonly
 		
 		// make predictions for this target
 			predict xb, xb
