@@ -61,7 +61,7 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 		
 		// check to make sure there's data available to actually run the regression (e.g. there won't be for male maternal, for obvious reasons)
 			count if cf`t' != 0 & cf`t' != .
-			if `r(N)' <= 1 {
+			if `r(N)' == 0 {
 				di "No target data" _n
 				generate estProp`t' = 0
 				continue
