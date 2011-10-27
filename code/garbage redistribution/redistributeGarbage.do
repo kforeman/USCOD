@@ -88,6 +88,9 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 
 	// set the garbage code to CF = 0
 		replace cf`gc`p'' = 0
+	
+	// get rid of temporary variables
+		drop universeProp totalEstProp estProp* logitProp*
 	}
 
 // save the final results
