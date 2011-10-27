@@ -54,6 +54,10 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	generate stateFips = substr(fips,1,2)
 	generate countyFips = substr(fips,3,3)
 
+// add ICD version variable
+	generate icd = 9
+	replace icd = 10 if year >= `icdSwitchYear'
+
 // save deaths by county
 	save "`projDir'/data/cod/clean/deaths by USCOD/countyDeaths.dta", replace
 	preserve
@@ -66,12 +70,16 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 		generate cf`u' = deaths`u' / deathsTotal
 		replace cf`u' = 0 if cf`u' == .
 	}
-	keep fips countyFips stateFips sex age year deathsTotal cf*
+	keep fips countyFips stateFips sex age year icd deathsTotal cf*
 	save "`projDir'/data/cod/clean/deaths by USCOD/countyCFs.dta", replace
 
 // collapse to deaths by state
 	restore
 	collapse (sum) deaths, by(stateFips sex age year uscod)
+
+// add ICD version variable
+	generate icd = 9
+	replace icd = 10 if year >= `icdSwitchYear'
 
 // save causes of death by state
 	save "`projDir'/data/cod/clean/deaths by USCOD/stateDeaths.dta", replace
@@ -83,5 +91,5 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 		generate cf`u' = deaths`u' / deathsTotal
 		replace cf`u' = 0 if cf`u' == .
 	}
-	keep stateFips sex age year deathsTotal cf*
+	keep stateFips sex age year icd deathsTotal cf*
 	save "`projDir'/data/cod/clean/deaths by USCOD/stateCFs.dta", replace
