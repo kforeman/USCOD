@@ -64,7 +64,7 @@ Purpose:	redistribute garbage codes onto USCOD by county using a mixed effects r
 					di in red "Currently redistributing `name`p'' onto `t' for ICD `v' sex=`s'"
 
 				// run the mixed effects regression
-					xtmixed logitProp`t' year i.age || stateFips: year || countyFips:
+					xtmixed logitProp`t' year i.age || stateFips: || countyFips:
 
 				// make predictions for this target
 					predict xb, xb
