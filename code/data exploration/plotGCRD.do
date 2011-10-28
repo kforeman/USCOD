@@ -29,7 +29,7 @@ Purpose:	make plots of garbage redistribution
 	merge 1:1 uscod year using `unrd', nogen
 
 // add on cause names
-	merge m:1 uscod using "`projDir'/data/cod/clean/COD Maps/USCOD_names.dta", keep(match)
+	merge m:1 uscod using "`projDir'/data/cod/clean/COD Maps/USCOD_names.dta", keep(match) nogen
 	generate name = uscod + " " + uscodName
 
 // plot national trends
@@ -38,3 +38,31 @@ Purpose:	make plots of garbage redistribution
 
 // save the graph
 	graph export "`projDir'/outputs/data exploration/garbage/redistributed.pdf", replace
+
+// make a version without garbage codes and with aggregates
+	preserve
+	drop if substr(uscod, 1, 1) == "G"
+	drop if length(uscod) == 3
+	replace uscod = substr(uscod, 1, 3)
+	collapse (sum) deaths rawDeaths, by(uscod year)
+	tempfile lev2
+	save `lev2', replace
+	restore, preserve
+	drop if substr(uscod, 1, 1) == "G"
+	replace uscod = substr(uscod, 1, 1)
+	collapse (sum) deaths rawDeaths, by(uscod year)
+	tempfile lev1
+	save `lev1', replace
+	collapse (sum) deaths rawDeaths, by(year)
+	generate uscod = ""
+	tempfile all
+	save `all', replace
+	restore
+	append using `lev2'
+	append using `lev1'
+	append using `all'
+	drop name
+	merge m:1 uscod using "`projDir'/data/cod/clean/COD Maps/USCOD_names.dta", update nogen keep(match master match_update)
+	replace uscodName = "All Causes" if uscod == ""
+	generate name = uscod + " " + uscodName
+	scatter rawDeaths deaths year, by(name, yrescale legend(off)) xline(1998.5) msymbol(oh oh) mcolor(red blue)
