@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
 Created:	27 October 2011
-Updated:	27 October 2011
+Updated:	28 October 2011
 Purpose:	redistribute garbage codes onto USCOD by county using a mixed effects regression
 Inputs:		parameter 1: sex (1 = male, 2 = female)
 			parameter 2: icd (9 or 10)
@@ -95,8 +95,8 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 			replace cf`t' = cf`t' + (estProp`t' * cf`gc`p'')
 		}
 
-	// set the garbage code to CF = 0
-		replace cf`gc`p'' = 0
+	// get rid of the garbage
+		drop cf`gc`p''
 	
 	// get rid of temporary variables
 		drop universeProp totalEstProp estProp* logitProp*
