@@ -100,6 +100,9 @@ Inputs:		parameter 1: sex (1 = male, 2 = female)
 	
 	// get rid of temporary variables
 		drop universeProp totalEstProp estProp* logitProp*
+	
+	// save a temp file so that we can later reconstruct the flow of garbage for visualization
+		save "`projDir'/data/scratch/garbageFlow`p'Sex`1'Icd`2'.dta", replace
 	}
 
 // save the final results
