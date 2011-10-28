@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
 Created:	27 October 2011
-Updated:	27 October 2011
+Updated:	28 October 2011
 Purpose:	run the redistribution for both icd versions and sexes in parallel (Windows only for right now...)
 */
 
@@ -61,8 +61,26 @@ Purpose:	run the redistribution for both icd versions and sexes in parallel (Win
 		}
 	}
 
-// save the final file
+// save the final CF file
+	compress
 	save "`projDir'/data/cod/clean/redistributed/countyCFs.dta", replace
+
+// convert back to deaths (long format)
+	reshape long cf, i(sex age fips year) j(uscod) string
+	generate deaths = cf * deathsTotal
+	drop deathsTotal cf
+	save "`projDir'/data/cod/clean/redistributed/countyDeaths.dta", replace
+
+// aggregate to deaths by state
+	collapse (sum) deaths, by(stateFips age sex year uscod icd)
+	save "`projDir'/data/cod/clean/redistributed/stateDeaths.dta", replace
+
+// convert back into cause fractions by state
+	bysort sex age year stateFips: egen deathsTotal = sum(deaths)
+	generate cf = deaths / deathsTotal
+	drop deaths
+	reshape wide cf, i(sex age year stateFips) j(uscod) string
+	save "`projDir'/data/cod/clean/redistributed/stateCFs.dta", replace
 
 // delete temporary files
 	foreach s of local sexList {
