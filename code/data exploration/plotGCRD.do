@@ -53,6 +53,7 @@ Purpose:	make plots of garbage redistribution
 	collapse (sum) deaths rawDeaths, by(uscod year)
 	tempfile lev1
 	save `lev1', replace
+	restore, preserve
 	collapse (sum) deaths rawDeaths, by(year)
 	generate uscod = ""
 	tempfile all
@@ -65,4 +66,6 @@ Purpose:	make plots of garbage redistribution
 	merge m:1 uscod using "`projDir'/data/cod/clean/COD Maps/USCOD_names.dta", update nogen keep(match master match_update)
 	replace uscodName = "All Causes" if uscod == ""
 	generate name = uscod + " " + uscodName
-	scatter rawDeaths deaths year, by(name, yrescale legend(off)) xline(1998.5) msymbol(oh oh) mcolor(red blue)
+	replace deaths = . if substr(uscod, 1, 1) == "G"
+	scatter rawDeaths deaths year, by(name, yrescale legend(off)) xline(1998.5, lcolor(black)) xline(1988.5, lcolor(gray)) msymbol(oh oh) mcolor(red blue)
+	graph export "`projDir'/outputs/data exploration/garbage/redistributed.pdf", replace
