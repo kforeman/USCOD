@@ -43,10 +43,12 @@ Purpose:	run the redistribution for both icd versions and sexes in parallel (Win
 		foreach v of local icdList {
 			local done = 0
 			while `done' == 0 {
-				capture confirm file "icd`v'Sex`s'/garbageIcd`v'Sex`s'Finished.txt"
+				capture confirm file "garbageIcd`v'Sex`s'Finished.txt"
 				if _rc == 0 local done = 1
-				sleep 30000
-				display in yellow "." _c
+				else {
+					sleep 30000
+					display in yellow "." _c
+				}
 			}
 		}
 	}
@@ -66,7 +68,7 @@ Purpose:	run the redistribution for both icd versions and sexes in parallel (Win
 	foreach s of local sexList {
 		foreach v of local icdList {
 			capture rm "`projDir'/data/cod/clean/redistributed/countyCFs_sex`s'_icd`v'.dta"
-			capture rm "`projDir'/logs/scratch/icd`v'Sex`s'/garbageIcd`v'Sex`s'Finished.txt"
+			capture rm "`projDir'/logs/scratch/garbageIcd`v'Sex`s'Finished.txt"
 			capture rm "`projDir'/logs/scratch/icd`v'Sex`s'/redistributeGarbage.log"
 		}
 	}
