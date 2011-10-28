@@ -59,6 +59,7 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	replace icd = 10 if year >= `icdSwitchYear'
 
 // save deaths by county
+	compress
 	save "`projDir'/data/cod/clean/deaths by USCOD/countyDeaths.dta", replace
 	preserve
 
