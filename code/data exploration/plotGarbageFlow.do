@@ -103,10 +103,11 @@ Purpose:	make a matrix of where the garbage flows to put into a cool d3 visualiz
 
 // add on rows for the original cause fractions
 	use "`projDir'/data/cod/clean/deaths by USCOD/stateDeaths.dta", clear
-	keep if inrange(age, 0, 85) & substr(uscod, 1, 1) != "G"
+	keep if inrange(age, 0, 85)
 	collapse (sum) deaths, by(sex age year uscod)
 	rename uscod giver
 	bysort sex age year: egen cf = pc(deaths), prop
+	drop if substr(uscod, 1, 1) == "G"
 	foreach u of local uscods {
 		generate recipient`u' = 0
 		replace recipient`u' = cf if giver == "`u'"
@@ -116,3 +117,4 @@ Purpose:	make a matrix of where the garbage flows to put into a cool d3 visualiz
 
 // output the matrix for use by d3
 	outsheet using "`projDir'/outputs/data exploration/garbage/garbageFlow.csv", comma replace
+	outsheet using "C:/wamp/www/garbageFlow/garbageFlow.csv", comma replace
