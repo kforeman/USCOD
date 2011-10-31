@@ -105,9 +105,9 @@ Purpose:	make a matrix of where the garbage flows to put into a cool d3 visualiz
 	use "`projDir'/data/cod/clean/deaths by USCOD/stateDeaths.dta", clear
 	keep if inrange(age, 0, 85)
 	collapse (sum) deaths, by(sex age year uscod)
-	rename uscod giver
 	bysort sex age year: egen cf = pc(deaths), prop
 	drop if substr(uscod, 1, 1) == "G"
+	rename uscod giver
 	foreach u of local uscods {
 		generate recipient`u' = 0
 		replace recipient`u' = cf if giver == "`u'"
