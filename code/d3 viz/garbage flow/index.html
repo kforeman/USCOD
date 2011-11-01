@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Garbage Flow</title>
+    <script type="text/javascript" src="../d3/d3.js"></script>
+    <script type="text/javascript" src="../d3/d3.csv.js"></script>
+    <script type="text/javascript" src="../d3/lib/jquery/jquery.min.js"></script>
+    <script type="text/javascript" src="../d3/lib/jquery-ui/jquery-ui.min.js"></script>
+	<style type='text/css'> body { font-family:'Segoe UI', Arial, sans-serif; } </style>
+    <link type="text/css" href="../d3/lib/jquery-ui/jquery-ui.css" rel='stylesheet'>
+  </head>
+  <body>
+	
+	<div style="width: 50px; position: absolute; left: 10px; top: 10px"><span>Age</span></div>
+	<div id='ageSlider' style='width: 250px; position: absolute; left: 60px; top: 10px'></div>
+	<div id='ageLabel' style="width: 50px; position: absolute; left: 330px; top: 10px"><span>0</span></div>
+	
+	<div style="width: 50px; position: absolute; left: 10px; top: 40px"><span>Year</span></div>
+	<div id='yearSlider' style='width: 250px; position: absolute; left: 60px; top: 40px'></div>
+	<div id='yearLabel' style="width: 50px; position: absolute; left: 330px; top: 40px"><span>1979</span></div>
+	
+	<div><form id='sexRadio' style='position: absolute; left: 400px; top: 25px'><input type='radio' name='sexRadio' id='maleRadio' value=1 checked=true onclick='changeSex(this.value)'><label for='maleRadio'>Male</label><input type='radio' name='sexRadio' id='femaleRadio' value=2 onclick='changeSex(this.value)'><label for='femaleRadio'>Female</label></form></div>
+  
+  
+    <script type="text/javascript">
+
+// load in the data
+	d3.csv('garbageFlow.csv', function(csv) {
+		data = csv;
+		d3.csv('uscodNames.csv', function(csv) {
+			uscod = csv.sort(function(a,b) { return a.order - b.order; });
+			uscodNames = {};
+			uscodOrder = {};
+			uscod.forEach(function(d) { uscodNames[d.uscod] = d.uscodName; uscodOrder[d.uscod] = d.order });
+			initialize();
+		});
+	});
+
+// add age slider
+	age = 0;
+	$('#ageSlider').slider({
+		value: age,
+		min: 0,
+		max: 85,
+		step: 5,
+		animate: true,
+		slide: function(event, ui) { d3.select('#ageLabel').text(ui.value); age = ui.value; update(); }
+	});
+	
+// add year slider
+	year = 1979;
+	$('#yearSlider').slider({
+		value: year,
+		min: 1979,
+		max: 2007,
+		step: 1,
+		animate: true,
+		slide: function(event, ui) { d3.select('#yearLabel').text(ui.value); year = ui.value; update(); }
+	});
+
+// change sex on radio selection
+	sex = 1;
+	function changeSex(s) {	
+		sex = parseInt(s); 
+		update();
+	}
+
+// draw the main area
+	var h = 700,
+		w = 600,
+		rw = 30,
+		mar = 50;
+	var chart = d3.select('body')
+	  .append('div')
+		.style('position', 'absolute')
+		.style('top', '70px')
+		.style('left', '10px')
+	  .append('svg:svg')
+		.attr('width', w)
+		.attr('height', h+1);
+
+// function to filter the data to the current level
+	function filterData() {
+	// take just the relevant rows for this year/sex/age
+		current = data.filter(function(d) { return d.year == year && d.age == age && d.sex == sex; });
+	// sort the array appropriately
+		current.sort(function(a,b) { return uscodOrder[a.uscod] - uscodOrder[b.uscod] });
+	// update the arrays and dictionaries used for sizing everything
+		findOriginal();
+		findFinal();
+		findFlows();
+	}
+
+// find the original size of each cause of death (which corresponds to the row total for the cause)
+	function findOriginal() {
+	// build an array in which to keep the cause fractions
+		original = [];
+		cumSum = 0;
+		uscod.forEach(function(a) {
+		// find the total size of the row
+			row = current.filter(function(d) { return d.giver == a.uscod; });
+			rowSum = 0;
+			uscod.forEach(function(b) {
+				rowSum += row[0] ? parseFloat(row[0]['recipient' + b.uscod]) : 0;
+			});
+		// append to the array
+			original.push({ 'uscod': a.uscod, 'cf': rowSum, 'cfAbove': cumSum });
+		// keep a running tally of the cumulative sum of things above the present level
+			cumSum += rowSum;
+		});	
+	}
+
+// find the final size of each cause of death (which corresponds to the column total for the cause)
+	function findFinal() {
+	// start an array to hold the pieces
+		final = [];
+		var cumSum = 0;
+		uscod.forEach(function(a) {
+		// find the total size of the column
+			var columnSum = 0;
+			current.forEach(function(d) {
+				columnSum += parseFloat(d['recipient' + a.uscod]);
+			});
+		// append to the array
+			final.push({ 'uscod': a.uscod, 'cf': columnSum, 'cfAbove': cumSum });
+		// keep a running tally of the cumulative sum of things above the present level
+			cumSum += columnSum;
+		});
+	}
+
+// find the size of the flows between each cause
+	function findFlows() {
+	// make a dictionary to hold the pieces
+		flows = {};
+	// make a list of all the pairs
+		flowPairs = [];
+		// loop through all the pairs and add the flow size to the dictionary
+		uscod.forEach(function(a) {
+			var row = current.filter(function(d) { return d.giver == a.uscod; });
+			uscod.forEach(function(b) {
+				var pair = a.uscod + '_' + b.uscod;
+				flowPairs.push([a.uscod, b.uscod]);
+				flows[pair] = row[0] ? parseFloat(row[0]['recipient' + b.uscod]) : 0;
+			})
+		});
+		flowPairs.sort(function(a,b) { return a[0] > b[0]; })
+	}
+
+// initialize the visualization
+	function initialize() {
+		
+	// fill in our various arrays and dictionaries necessary for sizing everything
+		filterData();
+	
+	// draw rectangles to represent the original size of each cause
+		origRects = chart.selectAll('origRect')
+			.data(original)
+		  .enter().append('svg:rect')
+			.attr('id', function(d) { return 'origRect' + d.uscod; })
+			.attr('class', 'origRect')
+			.attr('height', function(d) { return d.cf * h; })
+			.attr('width', rw)
+			.attr('x', mar)
+			.attr('y', function(d) { return .5 + d.cfAbove * h; })
+			.style('stroke', 'white')
+			.style('fill', function(d) {
+				if (d.uscod.substr(0,1) == 'G') return d3.rgb(152,78,163);
+				else if (d.uscod.substr(0,1) == 'A') return d3.rgb(228,26,28);
+				else if (d.uscod.substr(0,1) == 'B') return d3.rgb(55,126,184);
+				else if (d.uscod.substr(0,1) == 'C') return d3.rgb(77,175,74);
+			});
+		origRects.append('svg:title').text(function(d) { return uscodNames[d.uscod]; });
+	
+	// draw rectangles to represent the final size of each cause
+		finalRects = chart.selectAll('finalRect')
+			.data(final)
+		  .enter().append('svg:rect')
+			.attr('id', function(d) { return 'finalRect' + d.uscod; })
+			.attr('class', 'finalRect')
+			.attr('height', function(d) { return d.cf * h; })
+			.attr('width', rw)
+			.attr('x', w-rw-mar)
+			.attr('y', function(d) { return .5 + d.cfAbove * h; })
+			.style('stroke', 'white')
+			.style('fill', function(d) {
+				if (d.uscod.substr(0,1) == 'G') return d3.rgb(152,78,163);
+				else if (d.uscod.substr(0,1) == 'A') return d3.rgb(228,26,28);
+				else if (d.uscod.substr(0,1) == 'B') return d3.rgb(55,126,184);
+				else if (d.uscod.substr(0,1) == 'C') return d3.rgb(77,175,74);
+			});
+		finalRects.append('svg:title').text(function(d) { return uscodNames[d.uscod]; });
+	
+	// draw diagonals to show the flow of garbage
+		flowDiags = chart.selectAll('flowDiag')
+			.data(flowPairs)
+		  .enter().append('svg:path')
+			.attr('id', function(d) { return 'path_' + d[0] + '_' + d[1]; })
+			.attr('d', function(d) { return diagonal(d[0], d[1]); })
+			.style('stroke-opacity', function(d) {
+				return flows[d[0] + '_' + d[1]] == 0 ? 0 : (d[0].substr(0,1)=='G' ? .4 : .2);
+			})
+			.style('fill', 'none')
+			.attr('stroke-width', function(d) {
+				return flows[d[0] + '_' + d[1]] * h - 1;
+			})
+			.style('stroke', function(d) {
+				if (d[0].substr(0,1) == 'G') return d3.rgb(152,78,163);
+				else if (d[0].substr(0,1) == 'A') return d3.rgb(228,26,28);
+				else if (d[0].substr(0,1) == 'B') return d3.rgb(55,126,184);
+				else if (d[0].substr(0,1) == 'C') return d3.rgb(77,175,74);
+			});
+		flowDiags.append('svg:title').text(function(d) { return d[0].substr(0,1) == 'G' ? uscodNames[d[0]] + ' to ' + uscodNames[d[1]] : ''; })
+	
+	// draw brackets for cancers, cardio, intentional, and unintentional
+		brackDat = [['B_1', 'Cancer'], ['B_3', 'Cardio'], ['C_1', 'Unint'], ['C_2', 'Intent']]
+		origBrack = chart.selectAll('origBrack')
+			.data(brackDat)
+		  .enter().append('svg:polyline')
+			.attr('points', genOrigBrack)
+			.style('stroke', 'gray')
+			.style('fill', 'none');
+		origBrackLab = chart.selectAll('origBrackLab')
+			.data(brackDat)
+		  .enter().append('svg:text')
+			.text(function(d) { return d[1]; })
+			.attr('y', posOrigLab)
+			.attr('x', (mar-10)/2)
+			.attr('text-anchor', 'middle')
+			.attr('alignment-baseline', 'middle')
+			.style('font-size', '11px');
+		finalBrack = chart.selectAll('finalBrack')
+			.data(brackDat)
+		  .enter().append('svg:polyline')
+			.attr('points', genFinalBrack)
+			.style('stroke', 'gray')
+			.style('fill', 'none');
+		finalBrackLab = chart.selectAll('finalBrackLab')
+			.data(brackDat)
+		  .enter().append('svg:text')
+			.text(function(d) { return d[1]; })
+			.attr('y', posFinalLab)
+			.attr('x', w-(mar-10)/2)
+			.attr('text-anchor', 'middle')
+			.attr('alignment-baseline', 'middle')
+			.style('font-size', '11px');
+	}
+	
+// function to draw grouping brackets on the left side
+	function genOrigBrack(group) {
+		var sy = 0,
+			ey = 0;
+		original.forEach(function(d) {
+			if (sy == 0 && d.uscod.substr(0,3) == group[0]) {
+				sy = d.cfAbove;
+				ey = d.cfAbove;
+			}
+			if (d.uscod.substr(0,3) == group[0]) ey += d.cf;
+		})
+		return (mar-1) + ',' + (sy*h+1) + ' ' + (mar-10) + ',' + (sy*h+1) + ' ' + (mar-10) + ',' + (ey*h-1) + ' ' + (mar-1) + ',' + (ey*h-1);
+	}
+	function posOrigLab(group) {
+		var sy = 0,
+			ey = 0;
+		original.forEach(function(d) {
+			if (sy == 0 && d.uscod.substr(0,3) == group[0]) {
+				sy = d.cfAbove;
+				ey = d.cfAbove;
+			}
+			if (d.uscod.substr(0,3) == group[0]) ey += d.cf;
+		})
+		return (sy+ey) / 2 * h;
+	}
+
+// function to draw grouping brackets on the right side
+	function genFinalBrack(group) {
+		var sy = 0,
+			ey = 0;
+		final.forEach(function(d) {
+			if (sy == 0 && d.uscod.substr(0,3) == group[0]) {
+				sy = d.cfAbove;
+				ey = d.cfAbove;
+			}
+			if (d.uscod.substr(0,3) == group[0]) ey += d.cf;
+		})
+		return (w-mar+1) + ',' + (sy*h+1) + ' ' + (w-mar+10) + ',' + (sy*h+1) + ' ' + (w-mar+10) + ',' + (ey*h-1) + ' ' + (w-mar+1) + ',' + (ey*h-1);
+	}
+	function posFinalLab(group) {
+		var sy = 0,
+			ey = 0;
+		final.forEach(function(d) {
+			if (sy == 0 && d.uscod.substr(0,3) == group[0]) {
+				sy = d.cfAbove;
+				ey = d.cfAbove;
+			}
+			if (d.uscod.substr(0,3) == group[0]) ey += d.cf;
+		})
+		return (sy+ey) / 2 * h;
+	}
+  
+// function to draw a diagonal from a source to its target
+	function diagonal(src, tgt) {
+		var source = original.filter(function(d) { return d.uscod == src; })[0],
+			target = final.filter(function(d) { return d.uscod == tgt; })[0];
+		if (source && target && flows[src + '_' + tgt] > 0) {
+		
+			var sy = source.cfAbove + flows[src + '_' + tgt] / 2,
+				ty = target.cfAbove + flows[src + '_' + tgt] / 2;
+			for (i=0; i<uscodOrder[tgt]-1; i++) {
+				sy += flows[src + '_' + uscod[i].uscod];
+			}
+			for (i=0; i<uscodOrder[src]-1; i++) {
+				ty += flows[uscod[i].uscod + '_' + tgt];
+			}
+			var m = (sy + ty) / 2,
+				p = [{x: rw+mar, y: sy * h}, {x: w/2, y: sy * h}, {x: w/2, y:ty * h}, {x:w-rw-mar, y:ty * h}];
+			p = p.map(function(d) { return [d.x, d.y]; });
+			return 'M' + p[0] + 'C' + p[1] + ' ' + p[2] + ' ' + p[3];
+		}
+		else return 'M' + (w/2) + ',' + (h/2) + 'C' + (w/2) + ',' + (h/2) + ' ' + (w/2) + ',' + (h/2) + ' ' + (w/2) + ',' + (h/2);
+  }
+	
+	
+// update the visualization
+	function update() {
+		
+	// fill in our various arrays and dictionaries necessary for sizing everything
+		filterData();
+	
+	// update the sizes of the original rectangles
+		origRects.data(original)
+		  .transition().duration(500).ease('linear')
+			.attr('y', function(d) { return .5 + d.cfAbove * h; })
+			.attr('height', function(d) { return d.cf * h; });
+		
+	// update the sizes of the final rectangles
+		finalRects.data(final)
+		  .transition().duration(500).ease('linear')
+			.attr('y', function(d) { return .5 + d.cfAbove * h; })
+			.attr('height', function(d) { return d.cf * h; });
+	
+	// update the flows
+		flowDiags.transition().duration(500).ease('linear')
+			.attr('d', function(d) { return diagonal(d[0], d[1]); })
+			.style('stroke-opacity', function(d) {
+				 return flows[d[0] + '_' + d[1]] == 0 ? 0 : (d[0].substr(0,1)=='G' ? .4 : .2);
+			})
+			.attr('stroke-width', function(d) {
+				return flows[d[0] + '_' + d[1]] * h - 1;
+			});
+	
+	// update the brackets
+		origBrack.transition().duration(500).ease('linear')
+			.attr('points', genOrigBrack);
+		origBrackLab.transition().duration(500).ease('linear')
+			.attr('y', posOrigLab);
+		finalBrack.transition().duration(500).ease('linear')
+			.attr('points', genFinalBrack);
+		finalBrackLab.transition().duration(500).ease('linear')
+			.attr('y', posFinalLab);
+
+	}
+	
+
+	
+	// filter down to males, 
+    </script>
+  </body>
+</html>
