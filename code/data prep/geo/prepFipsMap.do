@@ -41,3 +41,4 @@ Purpose:	create a map to convert from FIPS to state/county
 
 // save the map
 	save "`projDir'/data/geo/clean/fipsMap.dta", replace
+	outsheet using "`projDir'/data/geo/clean/fipsMap.csv", comma replace
