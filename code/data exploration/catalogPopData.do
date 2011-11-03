@@ -21,15 +21,7 @@ Purpose:	make a heatmap of where we do/don't have population data
 	reshape wide hasPop, i(fips) j(year)
 
 // merge on the master list of US counties
-	preserve
-		use "`projDir'/data/geo/clean/fipsMap.dta", clear
-		duplicates drop fips, force
-		drop if inlist(state, "AE", "AS", "FM", "GU", "MH", "MP", "PR", "PW", "VI")
-		keep fips state county
-		tempfile geo
-		save `geo', replace
-	restore
-	merge 1:1 fips using `geo', nogen
+	merge 1:1 fips using "`projDir'/data/geo/clean/fipsMap.dta", nogen keepusing(fips state county)
 
 // replace missings with zeros
 	describe hasPop*, varlist
