@@ -16,7 +16,7 @@ Purpose:	find average death rates by cause for really broad age/decade groups fo
 
 // add on population
 /* Note: we're dropping a lot of observations here, probably need to go back and look over the population prep code some more */
-	merge m:1 fips age sex year using "`projDir'/data/pop/clean/countyPopulations.dta", keep(match)
+	merge m:1 fips age sex year using "`projDir'/data/pop/clean/countyPopulations.dta"
 
 // create broad age groups
 	generate ageGroup = "0to14" if age < 15
