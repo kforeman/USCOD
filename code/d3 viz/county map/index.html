@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv='Content-Type' content='text/html;charset=utf-8'>
+    <title>USCOD</title>
+    <script type='text/javascript' src='colorbrewer.js'></script>
+    <script type='text/javascript' src='../d3/d3.js'></script>
+    <script type='text/javascript' src='../d3/d3.geo.js'></script>
+    <script type='text/javascript' src='../d3/d3.csv.js'></script>
+	<script type='text/javascript' src='../jquery/jquery-1.5.1.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.core.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.widget.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.mouse.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.button.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.slider.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.selectmenu.js'></script>
+	<script type='text/javascript' src='../jquery/plugins/poshytip/jquery.poshytip.min.js'></script>
+	<link type='text/css' href='../jquery/plugins/poshytip/tip-twitter/tip-twitter.css' rel='stylesheet' /> 
+	<link type='text/css' href='../jquery/themes/gbd-theme-5/jquery-ui-1.8.16.custom.css' rel='stylesheet' /> 
+	<link type='text/css' href='../jquery/themes/base/jquery.ui.selectmenu.css' rel='stylesheet' /> 
+	<style type='text/css'> body { font-family:'Segoe UI', Arial, sans-serif; text-anchor: middle; alignment-baseline: middle; font-size:11pt; } </style>
+  </head>
+  <body>
+    <script type='text/javascript'>
+
+// default values
+	var sex = 1,
+		year = 1,
+		age = 0,
+		disease1 = 'B_3_1',
+		disease2 = 0;
+
+// layout the page/controls
+	var body = d3.select('body');
+
+	// various spacing parameters
+		var chartW = 860,
+			chartH = 500,
+			margin = 10,
+			sliderH = 25,
+			sliderW = 200,
+			sliderTitleW = 50,
+			sliderLabelW = 70,
+			selectTitleW = 75,
+			selectW = 200;
+	
+	// age slider
+		var ageSliderTitle = body.append('div')
+			.style('position', 'absolute')
+			.style('width', sliderTitleW + 'px')
+			.style('left', margin + 'px')
+			.style('top', margin + 'px')
+		  .append('span')
+			.text('Age');
+		var ageSlider = body.append('div')
+			.attr('id', 'ageSlider')
+			.style('position', 'absolute')
+			.style('width', (sliderW - 20) + 'px')
+			.style('left', (margin + sliderTitleW) + 'px')
+			.style('top', (margin + 5) + 'px');
+		$('#ageSlider').slider({ animate: true, min: 0, step: 1, value: age, slide: function(event, ui) { changeAge(ui.value); } });
+		var ageSliderLabel = body.append('div')
+			.style('position', 'absolute')
+			.style('width', sliderLabelW + 'px')
+			.style('left', (margin + sliderTitleW + sliderW) + 'px')
+			.style('top', margin + 'px')
+		  .append('span');
+		function changeAge(a) {
+			age = a;
+			ageSliderLabel.text(ages[age].replace('to', ' to ').replace('plus', ' plus'));
+			updateMap();
+		}
+	
+	// year slider
+		var yearSliderTitle = body.append('div')
+			.style('position', 'absolute')
+			.style('width', sliderTitleW + 'px')
+			.style('left', margin + 'px')
+			.style('top', (margin + sliderH) + 'px')
+		  .append('span')
+			.text('Year');
+		var yearSlider = body.append('div')
+			.attr('id', 'yearSlider')
+			.style('position', 'absolute')
+			.style('width', (sliderW - 20) + 'px')
+			.style('left', (margin + sliderTitleW) + 'px')
+			.style('top', (margin + sliderH + 4) + 'px');
+		$('#yearSlider').slider({ animate: true, min: 0, step: 1, value: year, slide: function(event, ui) { changeYear(ui.value); } });
+		var yearSliderLabel = body.append('div')
+			.style('position', 'absolute')
+			.style('width', sliderLabelW + 'px')
+			.style('left', (margin + sliderTitleW + sliderW) + 'px')
+			.style('top', (margin + sliderH) + 'px')
+		  .append('span');
+		function changeYear(y) {
+			year = y;
+			yearSliderLabel.text(years[year]);
+			updateMap();
+		}
+	
+	// sex radio
+		sexes = [{'sex': 1, 'sexName': 'Male'}, {'sex': 2, 'sexName': 'Female'}];
+		var sexRadioTitle = body.append('div')
+			.style('position', 'absolute')
+			.style('left', (margin) + 'px')
+			.style('top', (margin + 2*sliderH) + 'px')
+		  .append('span')
+			.text('Sex');
+		var sexRadio = body.append('div')
+			.style('position', 'absolute')
+			.style('left', (margin + sliderTitleW) + 'px')
+			.style('top', (margin + 2*sliderH) + 'px')
+		  .append('form')
+		    .attr('id', 'sexRadio');
+		sexes.map(function(s) {
+			sexRadio.append('input')
+				.attr('type', 'radio')
+				.attr('name', 'sexRadio')
+				.attr('id', s.sexName + 'Radio')
+				.attr('value', s.sex)
+				.attr(s.sex == 1 ? 'checked' : 'ignoreMe', 'true')
+				.attr('onclick', 'changeSex(this.value)');
+			sexRadio.append('label')
+				.attr('for', s.sexName + 'Radio')
+				.text(s.sexName);
+		})
+		$('#sexRadio').buttonset().css('font-size', 10 + 'px').change(function() { changeSex($('.sexRadio:checked').val()); });
+		function changeSex(s) {
+			sex = s;
+			updateMap();
+		}
+	
+	// load in causes of death
+		d3.csv('uscodNames.csv', function(csv) {
+			uscod = csv.filter(function(d) { return d.uscod.substr(0,1) != 'G'; });
+	
+		// dropdown for disease 1
+			var disease1Title = body.append('div')
+				.style('position', 'absolute')
+				.style('left', (margin + sliderTitleW + sliderW + sliderLabelW) + 'px')
+				.style('top', margin + 'px')
+			  .append('span')
+				.style('color', d3.rgb(49,130,189))
+				.text('Disease 1');
+			var disease1Select = body.append('div')
+				.style('position', 'absolute')
+				.style('left', (margin + sliderTitleW + sliderW + sliderLabelW + selectTitleW) + 'px')
+				.style('top', margin + 'px')
+			  .append('select')
+				.attr('id', 'disease1Select')
+				.attr('onchange', 'changeDisease1(value)');
+			disease1Select.append('option')
+				.attr('value', 0)
+				.text('None');
+			uscod.map(function(d, i) { 
+				disease1Select.append('option')
+					.attr('value', d.uscod)
+					.text(d.uscodName);
+				if (disease1 == d.uscod) {
+					$('#disease1Select')[0].selectedIndex = i+1;
+				}
+			});
+			$('#disease1Select').selectmenu({ style: 'popup', width: selectW + 'px' });
+			$('#disease1Select-button').css('font-size', '11px')
+			$('#disease1Select-menu').css('left', (margin + sliderTitleW + sliderW + sliderLabelW + selectTitleW) + 'px').css('width', selectW + 'px').css('font-size', '11px').css('top', margin + 'px');
+	
+		// dropdown for disease 2
+			var disease2Title = body.append('div')
+				.style('position', 'absolute')
+				.style('left', (margin + sliderTitleW + sliderW + sliderLabelW) + 'px')
+				.style('top', (margin + sliderH) + 'px')
+			  .append('span')
+				.style('color', d3.rgb(222,45,38))
+				.text('Disease 2');
+			var disease2Select = body.append('div')
+				.style('position', 'absolute')
+				.style('left', (margin + sliderTitleW + sliderW + sliderLabelW + selectTitleW) + 'px')
+				.style('top', (margin + sliderH) + 'px')
+			  .append('select')
+				.attr('id', 'disease2Select')
+				.attr('onchange', 'changeDisease2(value)')
+				.attr('disabled', 'true');
+			disease2Select.append('option')
+				.attr('value', 0)
+				.text('None');
+			uscod.map(function(d) { 
+				disease2Select.append('option')
+					.attr('value', d.uscod)
+					.text(d.uscodName);
+				if (disease2 == d.uscod) {
+					$('#disease2Select')[0].selectedIndex = i+1;
+				}
+			});
+			$('#disease2Select').selectmenu({ style: 'popup', width: selectW + 'px' });
+			$('#disease2Select-button').css('font-size', '11px')
+			$('#disease2Select-menu').css('left', (margin + sliderTitleW + sliderW + sliderLabelW + selectTitleW) + 'px').css('width', selectW + 'px').css('font-size', '11px').css('top', (margin + sliderH) + 'px');
+		});
+		function changeDisease1(d) {
+			disease1 = d;
+			updateMap();
+		}
+		function changeDisease2(d) {
+			disease2 = d;
+			updateMap();
+		}
+
+	// charting area
+		var chart = body.append('div')
+			.style('position', 'absolute')
+			.style('top', (2*margin + 3*sliderH) + 'px')
+			.style('left', margin + 'px')
+		  .append('svg:svg')
+			.style('background', '#eee')
+			.style('width', chartW + 'px')
+			.style('height', chartH + 'px');
+
+// setup the Albers USA projection for the counties
+	var path = d3.geo.path();
+
+// load in geographic data
+	d3.json('us-counties.json', function(json) {
+		
+	// draw the disease 1 county layer
+		disease1Counties = chart.append('svg:g')
+			.selectAll('path')
+			.data(json.features)
+		  .enter().append('svg:path')
+			.style('stroke', 'none')
+			.attr('fill', 'none')
+			//.style('fill-opacity', .5)
+			.style('fill-opacity', 1)
+			.attr('d', path);
+	
+	// draw the disease 2 county layer
+		disease2Counties = chart.append('svg:g')
+			.selectAll('path')
+			.data(json.features)
+		  .enter().append('svg:path')
+			.style('stroke', 'white')
+			.style('stroke-width', '.5px')
+			.attr('fill', 'none')
+			.style('fill-opacity', .5)
+			.attr('d', path);
+	
+	// draw the state borders
+		d3.json('us-states.json', function(json) {
+			states = chart.append('svg:g')
+				.selectAll('path')
+				.data(json.features)
+			  .enter().append('svg:path')
+				.style('stroke', 'white')
+				.style('stroke-width', '2px')
+				.attr('fill', 'none')
+				.attr('d', path);
+			
+			loading = chart.append('svg:text').attr('font-size', '50px').attr('x', chartW/2).attr('y', chartH/2).text('Loading').style('color', 'black').attr('alignment-baseline', 'middle');
+		});
+	});
+
+// load in the data
+	d3.csv('roughRates.csv', function(csv) {
+		loading.remove();
+
+	// first nest by sex, cause, and age
+		nest = d3.nest()
+			.key(function(d) { return d.sex; })
+			.key(function(d) { return d.uscod; })
+			.map(csv);
+	
+	// figure out which ages/years are in the data
+		ages = [];
+		years = [];
+		nest[sexes[0].sex][uscod[0].uscod].map(function(d) {
+			if (!ages.some(function(a) { return d.ageGroup == a; })) {
+				ages.push(d.ageGroup);
+			}
+			if (!years.some(function(y) { return d.decade == y; })) {
+				years.push(d.decade);
+			}
+		});
+	
+	// update the sliders to work with these age groups
+		$('#yearSlider').slider('option', 'max', years.length - 1).slider('option', 'value', year);
+		yearSliderLabel.text(years[year]);
+		$('#ageSlider').slider('option', 'max', ages.length - 1);
+		ageSliderLabel.text(ages[age].replace('to', ' to ').replace('plus', ' plus'));
+	
+	// find scales for each sex/cause
+		quantileScales = {};
+		sexes.map(function(s) {
+			uscod.map(function(u) {
+				ages.map(function(a) {
+					var tempArray = [];
+					nest[s.sex][u.uscod].filter(function(d) { return d.ageGroup == a; }).map(function(d) { tempArray.push(parseFloat(d.rate)); });
+					quantileScales[s.sex + '_' + u.uscod + '_' + a] = d3.scale.quantile().domain(tempArray).range(d3.range(9));
+				});
+			});
+		});
+	
+	// transform the nested data into a json-like lookup dictionary by fips
+		data = {};
+		ages.map(function(a) {
+			years.map(function(y) {
+				uscod.map(function(u) {
+					sexes.map(function(s) {
+						data[s.sex + '_' + u.uscod + '_' + a + '_' + y] = {};
+						nest[s.sex][u.uscod]
+							.filter(function(d) { return d.ageGroup == a && d.decade == y; })
+							.map(function(d) {
+								data[s.sex + '_' + u.uscod + '_' + a + '_' + y][d.fips] = parseFloat(d.rate);
+							});
+					});
+				});
+			});
+		});
+	
+	// update the map
+		updateMap();
+	});
+
+// convert scales into colorbrewer colors
+	function colorize(fips, disease, palette) {
+		var quant = quantileScales[sex + '_' + disease + '_' + ages[age]](data[sex + '_' + disease + '_' + ages[age] + '_' + years[year]][fips]);
+		return quant ? colorbrewer[palette][9][quant] : '#eee';
+	}
+
+// update the map
+	function updateMap() {
+		
+	// update disease 1 (blue)
+		if (disease1 == 0) {
+			disease1Counties.transition().duration(2000)
+				.attr('fill', 'none');
+		}
+		else {
+			disease1Counties.transition().duration(2000)
+				.attr('fill', function(d) {
+					return colorize(d.id, disease1, 'Blues');
+				});
+		}
+	
+	// update disease 2 (red)
+		if (disease2 == 0) {
+			disease2Counties.transition().duration(2000)
+				.attr('fill', 'none');
+		}
+		else {
+			disease2Counties.transition().duration(2000)
+				.attr('fill', function(d) {
+					return colorbrewer['Reds'][9][quantileScales[sex + '_' + disease2](data[sex + '_' + disease2 + '_' + ages[age] + '_' + years[year]][d.id])];
+				});
+		}		
+	}
+
+
+
+
+// slider for age
+
+/*
+var counties = svg.append('svg:g')
+    .attr('id', 'counties')
+    .attr('class', 'Blues');
+
+var states = svg.append('svg:g')
+    .attr('id', 'states');
+
+d3.json('../d3/examples/data/us-counties.json', function(json) {
+  counties.selectAll('path')
+      .data(json.features)
+    .enter().append('svg:path')
+      .attr('class', data ? quantize : null)
+      .attr('d', path);
+});
+
+d3.json('../d3/examples/data/us-states.json', function(json) {
+  states.selectAll('path')
+      .data(json.features)
+    .enter().append('svg:path')
+      .attr('d', path);
+});
+
+
+
+d3.csv('roughRates.csv', function(csv) {
+  all = csv;
+  jsonifyCsv();
+  counties.selectAll('path')
+      .attr('class', quantize);
+});
+
+var uscod = 'B_3_1',
+	sex = 1,
+	decade = 2000,
+	ageGroup = '60plus';
+
+function jsonifyCsv() {
+	var filtered = all.filter(function(d) { return d.sex == sex && d.ageGroup == ageGroup && d.decade == decade && d.uscod == uscod; });
+	data = {};
+	var t = [];
+	filtered.forEach(function(d) { data[parseInt(d.fips)] = parseFloat(d.rate); t.push(parseFloat(d.rate)); });
+	sc = d3.scale.quantile().domain(t).range(d3.range(9));
+}
+
+
+function quantize(d) {
+  return 'q' + sc(data[parseInt(d.id)]) + '-9';
+}
+*/
+	</script>
+  </body>
+</html>
