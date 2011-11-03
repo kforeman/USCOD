@@ -218,42 +218,53 @@
 	var path = d3.geo.path();
 
 // load in geographic data
-	d3.json('us-counties.json', function(json) {
+	d3.csv('fipsMap.csv', function(csv) {
+		fips = {};
+		csv.map(function(d) {
+			fips[d.fips] = {'state': d.state, 'county': d.county};
+		});
+	
+		d3.json('us-counties.json', function(json) {
+			
+		// draw the disease 1 county layer
+			disease1Counties = chart.append('svg:g')
+				.selectAll('path')
+				.data(json.features)
+			  .enter().append('svg:path')
+				.style('stroke', 'none')
+				.attr('fill', 'none')
+				//.style('fill-opacity', .5)
+				.style('fill-opacity', 1)
+				.attr('class', 'countyFill')
+				.attr('d', path)
+				.attr('title', function(d) { return fips[d.id] ? fips[d.id].county + ', ' + fips[d.id].state + ', ' + d.id : 'Name Missing, ' + d.id; });
+			$('.countyFill').poshytip({slide: false, followCursor: false, alignTo: 'cursor', showTimeout: 0, hideTimeout: 0, alignX: 'center', alignY: 'top', className: 'tip-twitter'});
 		
-	// draw the disease 1 county layer
-		disease1Counties = chart.append('svg:g')
-			.selectAll('path')
-			.data(json.features)
-		  .enter().append('svg:path')
-			.style('stroke', 'none')
-			.attr('fill', 'none')
-			//.style('fill-opacity', .5)
-			.style('fill-opacity', 1)
-			.attr('d', path);
-	
-	// draw the disease 2 county layer
-		disease2Counties = chart.append('svg:g')
-			.selectAll('path')
-			.data(json.features)
-		  .enter().append('svg:path')
-			.style('stroke', 'white')
-			.style('stroke-width', '.5px')
-			.attr('fill', 'none')
-			.style('fill-opacity', .5)
-			.attr('d', path);
-	
-	// draw the state borders
-		d3.json('us-states.json', function(json) {
-			states = chart.append('svg:g')
+		// draw the disease 2 county layer
+			disease2Counties = chart.append('svg:g')
 				.selectAll('path')
 				.data(json.features)
 			  .enter().append('svg:path')
 				.style('stroke', 'white')
-				.style('stroke-width', '2px')
+				.style('stroke-width', '.5px')
 				.attr('fill', 'none')
-				.attr('d', path);
-			
-			loading = chart.append('svg:text').attr('font-size', '50px').attr('x', chartW/2).attr('y', chartH/2).text('Loading').style('color', 'black').attr('alignment-baseline', 'middle');
+				.style('fill-opacity', 0)
+				.attr('d', path)
+				.attr('title', function(d) { return fips[d.id] ? fips[d.id].county + ', ' + fips[d.id].state + ', ' + d.id : 'Name Missing, ' + d.id; });
+		
+		// draw the state borders
+			d3.json('us-states.json', function(json) {
+				states = chart.append('svg:g')
+					.selectAll('path')
+					.data(json.features)
+				  .enter().append('svg:path')
+					.style('stroke', 'white')
+					.style('stroke-width', '2px')
+					.attr('fill', 'none')
+					.attr('d', path);
+				
+				loading = chart.append('svg:text').attr('font-size', '50px').attr('x', chartW/2).attr('y', chartH/2).text('Loading').style('color', 'black').attr('alignment-baseline', 'middle');
+			});
 		});
 	});
 
