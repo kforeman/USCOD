@@ -35,7 +35,8 @@ Purpose:	find average death rates by cause for really broad age/decade groups fo
 
 // find death rate
 	generate rate = deaths / pop * 100000
-	drop if rate == .
+	drop if rate == . | uscod == ""
+	drop deaths pop
 
 // save the prepped data for mapping
 	outsheet using "`projDir'/outputs/data exploration/mapping/roughRates.csv", comma replace
