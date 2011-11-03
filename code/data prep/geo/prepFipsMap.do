@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
 Created:	18 Oct 2011
-Updated:	18 Oct 2011
+Updated:	3 Nov 2011
 Purpose:	create a map to convert from FIPS to state/county
 */
 
