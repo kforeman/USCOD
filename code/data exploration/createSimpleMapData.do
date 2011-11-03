@@ -18,10 +18,6 @@ Purpose:	find average death rates by cause for really broad age/decade groups fo
 /* Note: we're dropping a lot of observations here, probably need to go back and look over the population prep code some more */
 	merge m:1 fips age sex year using "`projDir'/data/pop/clean/countyPopulations.dta", keep(match)
 
-// find death rate
-	generate rate = deaths / pop * 100000
-	drop if rate == .
-
 // create broad age groups
 	generate ageGroup = "0to14" if age < 15
 	replace ageGroup = "15to29" if inrange(age, 15, 29)
@@ -35,7 +31,11 @@ Purpose:	find average death rates by cause for really broad age/decade groups fo
 	replace decade = 2000 if inrange(year, 1990, 2007)
 
 // find deaths by these broad groups
-	collapse (mean) rate, by(uscod sex ageGroup decade fips)
+	collapse (sum) deaths pop, by(uscod sex ageGroup decade fips)
+
+// find death rate
+	generate rate = deaths / pop * 100000
+	drop if rate == .
 
 // save the prepped data for mapping
 	outsheet using "`projDir'/outputs/data exploration/mapping/roughRates.csv", comma replace
