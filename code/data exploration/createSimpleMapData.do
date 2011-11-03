@@ -20,6 +20,7 @@ Purpose:	find average death rates by cause for really broad age/decade groups fo
 
 // find death rate
 	generate rate = deaths / pop * 100000
+	drop if rate == .
 
 // create broad age groups
 	generate ageGroup = "0to14" if age < 15

@@ -117,4 +117,3 @@ Purpose:	make a matrix of where the garbage flows to put into a cool d3 visualiz
 
 // output the matrix for use by d3
 	outsheet using "`projDir'/outputs/data exploration/garbage/garbageFlow.csv", comma replace
-	outsheet using "C:/wamp/www/garbageFlow/garbageFlow.csv", comma replace
