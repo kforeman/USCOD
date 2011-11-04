@@ -16,7 +16,6 @@ Purpose:	check all the ICD9 years for both diabetes as underlying cause and diab
 
 // loop through the years
 	forvalues y = `startYear' / `endYear' {
-		mata year = year \ `y'
 
 	// load in the raw MCD file
 		display in red _n "Loading `y'..." _n
@@ -64,11 +63,10 @@ Purpose:	check all the ICD9 years for both diabetes as underlying cause and diab
 // save the results
 	outsheet using "`projDir'/outputs/data exploration/diabetes/diabetesByLine.csv", comma replace
 
-// plot the ratio
+// plot the levels
 	set scheme tufte
-	/* generate ratio = underlying / anywhere
-	scatter ratio year, name(ratio, replace) ytitle("Ratio of Underlying to Anywhere") xline(1988.5)
-	scatter underlying year, yaxis(1) || scatter anywhere year, yaxis(2) name(levels, replace) legend(ring(0) position(5)) ytitle("Diabetes Underlying", axis(1)) ytitle("Diabetes Anywhere", axis(2)) xline(1988.5)
-	graph combine ratio levels, rows(2)
-	graph export "`projDir'/outputs/data exploration/diabetes/diabetesIcd9.pdf", replace */
+	generate type = "Line " + string(line)
+	replace type = "Underlying" if line == 0
+	scatter diabetes year, by(type, yrescale) xline(1988.5) ytitle("Diabetes on Death Certificate") xlabel(,labsize(small))
+	graph export "`projDir'/outputs/data exploration/diabetes/diabetesByLine.pdf", replace
 	
