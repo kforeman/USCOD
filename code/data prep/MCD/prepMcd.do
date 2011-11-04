@@ -11,7 +11,7 @@ Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 	else local projDir "/shared/projects/`proj'"
 
 // setup parameters specific to this code
-	local startYear = 		1979
+	local startYear = 		1995
 	local endYear = 		2007
 	local icdSwitchYear =	1999
 
@@ -63,13 +63,22 @@ Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 		quietly generate deaths = 1
 
 	// find counts of deaths by cause/age/sex/fips
-		collapse (sum) deaths, by(cause age sex fips)
+		collapse (sum) deaths, by(cause age sex mcounty)
+		summarize deaths if mcounty != ., meanonly
+		local deaths`y' = `r(sum)'
+		di in green "`deaths`y'' Deaths" _n
 	
 	// add year to the data
 		quietly generate year = `y'
 	
 	// save the prepped data for this year
-		keep cause age sex fips deaths year
+		keep cause age sex mcounty deaths year
 		quietly compress
-		save "`projDir'/data/cod/clean/deaths by ICD/deaths`y'.dta", replace
+		quietly save "`projDir'/data/cod/clean/deaths by ICD/deaths`y'.dta", replace
+	}
+
+// print out how many deaths in total for each year, for easier debugging
+	di in red "Year    Total deaths"
+	forvalues y = `startYear' / `endYear' {
+		di in green "`y'    `deaths`y''"
 	}
