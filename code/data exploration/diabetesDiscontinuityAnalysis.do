@@ -31,6 +31,9 @@ Purpose:	check all the ICD9 years for both diabetes as underlying cause and diab
 	
 	// parse out line of death certificate
 		generate line = real(substr(seqn_ent, 1, 1))
+	
+	// get rid of line 6 (contributory diseases not in the causal chain)
+		drop if line == 6
 
 	// figure out how many lines were used on the death certificate
 		by id: egen linesUsed = max(line)
