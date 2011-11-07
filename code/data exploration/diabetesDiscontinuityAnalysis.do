@@ -28,6 +28,15 @@ Purpose:	check all the ICD9 years for both diabetes as underlying cause and diab
 		keep id cause_ent* seqn_ent*
 		reshape long cause_ent seqn_ent, i(id) j(position)
 		drop if cause_ent == ""
+	
+	// parse out line of death certificate
+		generate line = real(substr(seqn_ent, 1, 1))
+
+	// figure out how many lines were used on the death certificate
+		by id: egen linesUsed = max(line)
+	
+	// mark each cause by how far from the bottom it is
+		generate linesFromBottom = linesUsed - line
 
 	// 	determine if diabetes is listed as the cause
 		generate diabetes1 = inlist(cause_ent, "250", "2500", "25000", "25001", "25002", "25003", "25009", "2501", "25010")
@@ -38,15 +47,12 @@ Purpose:	check all the ICD9 years for both diabetes as underlying cause and diab
 		generate diabetes6 = inlist(cause_ent, "25071", "25072", "25073", "25079", "2508", "25080", "25081", "25082", "25083")
 		generate diabetes7 = inlist(cause_ent, "25089", "2509", "25090", "25091", "25092", "25093", "25099")
 		egen diabetes = anymatch(diabetes*), v(1)
-
-	// parse out line of death certificate
-		generate line = real(substr(seqn_ent, 1, 1))
 	
 	// for each death, find whether underlying and each line had diabetes
-		collapse (max) diabetes, by(id line)
+		collapse (max) diabetes, by(id line linesFromBottom)
 
 	// count how many times diabetes occurs in each case
-		collapse (sum) diabetes, by(line)
+		collapse (sum) diabetes, by(line linesFromBottom)
 	
 	// save a temp file
 		generate year = `y'
@@ -60,7 +66,9 @@ Purpose:	check all the ICD9 years for both diabetes as underlying cause and diab
 		append using `diab`y''
 	}
 
-// save the results
+// make a version with results based on line (from top)
+	preserve
+	collapse (sum) diabetes, by(line)
 	outsheet using "`projDir'/outputs/data exploration/diabetes/diabetesByLine.csv", comma replace
 
 // plot the levels
@@ -69,4 +77,15 @@ Purpose:	check all the ICD9 years for both diabetes as underlying cause and diab
 	replace type = "Underlying" if line == 0
 	scatter diabetes year, by(type, yrescale) xline(1988.5) ytitle("Diabetes on Death Certificate") xlabel(,labsize(small))
 	graph export "`projDir'/outputs/data exploration/diabetes/diabetesByLine.pdf", replace
-	
+
+// make a version with results based on line (from top)
+	restore
+	collapse (sum) diabetes, by(lineFromBottom)
+	outsheet using "`projDir'/outputs/data exploration/diabetes/diabetesByLineFromBottom.csv", comma replace
+
+// plot the levels
+	set scheme tufte
+	generate type = string(line) + " Lines from Bottom"
+	replace type = "Underlying" if line == 0
+	scatter diabetes year, by(type, yrescale) xline(1988.5) ytitle("Diabetes on Death Certificate") xlabel(,labsize(small))
+	graph export "`projDir'/outputs/data exploration/diabetes/diabetesByLineFromBottom.pdf", replace
