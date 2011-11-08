@@ -101,3 +101,23 @@ Purpose:	look at which causes co-occur with diabetes/renal failure/septicaemia
 		append using `tab`y''
 	}
 
+// reshape such that we have the proportion for each related cause long
+	rename A_* proportionA_*
+	rename B_* proportionB_*
+	rename C_* proportionC_*
+	rename G_* proportionG_*
+	reshape long proportion, i(underlying year) j(uscod) string
+	merge m:1 uscod using "`projDir'/data/cod/clean/COD maps/USCOD_names.dta", keep(match) nogen
+	generate related = subinstr(uscod, "_", ".", .) + " " + uscodName
+
+// for each underlying cause, plot the related causes over time
+	set scheme tufte
+	capture mkdir "`projDir'/outputs/data exploration/multi cause/pdftemp"
+	preserve
+	foreach c of local uscods {
+		keep if underlying == "`c'"
+		scatter proportion year, by(related, yrescale title("``c'_name' as Underlying")) xline(1998.5, lcolor(black)) xline(1988.5, lcolor(gray)) ytitle("Proportion of Cases Listing Additional Cause") xlabel(,labsize(small))
+		graph export "`projDir'/outputs/data exploration/multi cause/pdftemp/`c'.pdf", replace
+		restore, preserve
+	}
+	!"C:/ado/pdftk/pdftk.exe" "`projDir'/outputs/data exploration/multi cause/pdftemp/*.pdf" cat output "`projDir'/outputs/data exploration/multi cause/multipleCauses.pdf"
