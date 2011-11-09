@@ -99,26 +99,18 @@ Purpose:	look at which causes co-occur with diabetes/heart failure/septicaemia
 		}
 	}
 
-/*
-// reshape such that we have the proportion for each related cause long
-	rename A_* proportionA_*
-	rename B_* proportionB_*
-	rename C_* proportionC_*
-	rename G_* proportionG_*
-	reshape long proportion, i(underlying year) j(uscod) string
-	merge m:1 uscod using "`projDir'/data/cod/clean/COD maps/USCOD_names.dta", keep(match) nogen
-	generate related = subinstr(uscod, "_", ".", .) + " " + uscodName
-
-// for each underlying cause, plot the related causes over time
+// draw graphs for each cause
 	set scheme tufte
-	capture mkdir "`projDir'/outputs/data exploration/multi cause/pdftemp"
+	foreach c of local uscods {
+		replace underlying = subinstr("`c' ``c'_name'", "_", ".", .) if underlying == "`c'"
+	}
+	capture mkdir "`projDir'/outputs/data exploration/multi cause/underlyingpdf"
 	preserve
 	foreach c of local uscods {
-		keep if underlying == "`c'"
-		scatter proportion year, by(related, yrescale title("``c'_name' as Underlying")) xline(1998.5, lcolor(black)) xline(1988.5, lcolor(gray)) ytitle("Proportion of Cases Listing Additional Cause") xlabel(,labsize(small))
-		graph export "`projDir'/outputs/data exploration/multi cause/pdftemp/`c'.pdf", replace
+		keep if listedCause == "`c'"
+		scatter underlyingProportion year, by(underlying, yrescale title("``c'_name' Anywhere on Death Certificate")) xline(1998.5, lcolor(black)) xline(1988.5, lcolor(gray)) ytitle("Underlying Cause Proportion") xlabel(, labsize(small))
+		graph export "`projDir'/outputs/data exploration/multi cause/underlyingpdf/`c'.pdf", replace
 		restore, preserve
 	}
-	!"C:/ado/pdftk/pdftk.exe" "`projDir'/outputs/data exploration/multi cause/pdftemp/*.pdf" cat output "`projDir'/outputs/data exploration/multi cause/multipleCauses.pdf"
-	!erase "`projDir'/outputs/data exploration/multi cause/pdftemp/" /q
-*/
+	!"C:/ado/pdftk/pdftk.exe" "`projDir'/outputs/data exploration/multi cause/underlyingpdf/*.pdf" cat output "`projDir'/outputs/data exploration/multi cause/underlyingCause.pdf"
+	!erase "`projDir'/outputs/data exploration/multi cause/underlyingpdf/" /q
