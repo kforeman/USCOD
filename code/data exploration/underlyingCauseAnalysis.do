@@ -108,9 +108,9 @@ Purpose:	look at which causes co-occur with diabetes/heart failure/septicaemia
 	preserve
 	foreach c of local uscods {
 		keep if listedCause == "`c'"
-		scatter underlyingProportion year, by(underlying, yrescale title("``c'_name' Anywhere on Death Certificate")) xline(1998.5, lcolor(black)) xline(1988.5, lcolor(gray)) ytitle("Underlying Cause Proportion") xlabel(, labsize(small))
+		scatter underlyingProportion year, by(underlying, yrescale title("``c'_name' Anywhere in Part I")) xline(1998.5, lcolor(black)) xline(1988.5, lcolor(gray)) ytitle("Underlying Cause Proportion") xlabel(, labsize(small))
 		graph export "`projDir'/outputs/data exploration/multi cause/underlyingpdf/`c'.pdf", replace
 		restore, preserve
 	}
 	!"C:/ado/pdftk/pdftk.exe" "`projDir'/outputs/data exploration/multi cause/underlyingpdf/*.pdf" cat output "`projDir'/outputs/data exploration/multi cause/underlyingCause.pdf"
-	!erase "`projDir'/outputs/data exploration/multi cause/underlyingpdf/" /q
+	!rmdir "`projDir'/outputs/data exploration/multi cause/underlyingpdf/" /q /s
