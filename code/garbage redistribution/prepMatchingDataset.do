@@ -76,6 +76,9 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 			}
 		}
 	
+	// group into race categories
+		quietly do "`projDir'/code/data prep/MCD/fixRace.do"
+	
 	// use Sandeep's code to convert to appropriate FIPS codes
 		quietly do "`projDir'/code/data prep/geo/sandeepsFipsFixer.do" `y'
 	
@@ -92,7 +95,7 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 			else replace sex = . if !inlist( sex, 1, 2 )
 		}
 	// keep just the relevant variables
-		keep mcounty sex age underlying cause1-cause20
+		keep mcounty sex age race placedeath underlying cause1-cause20
 	
 	// for every cause, figure out which rows contain it
 		foreach c of local uscods {
