@@ -77,7 +77,7 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 		}
 	
 	// group into race categories
-		quietly do "`projDir'/code/data prep/MCD/fixRace.do"
+		quietly do "`projDir'/code/data prep/MCD/fixRace.do" `y'
 	
 	// use Sandeep's code to convert to appropriate FIPS codes
 		quietly do "`projDir'/code/data prep/geo/sandeepsFipsFixer.do" `y'
