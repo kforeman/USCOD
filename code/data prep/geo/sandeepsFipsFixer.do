@@ -164,7 +164,7 @@ pause on
 				drop if postal == "ZZ"							/*CODE FOR 2003 and 2004, where numeric fips codes not provided*/
 				drop stateres
 				sort postal
-				merge postal using "$merge/postal-fips.dta"
+				merge m:1 postal using "$merge/postal-fips.dta"
 					tab _merge
 									
 					keep if _merge==3	
