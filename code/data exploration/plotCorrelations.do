@@ -102,6 +102,9 @@ Purpose:	plot correlations between causes over time
 	drop cause1 cause2
 	rename correlation corr_
 	reshape wide corr_, i(year sex age) j(pair) string
+	generate sexAge = "F" + string(age) if sex == 2
+	replace sexAge = "M" + string(age) if sex == 1
+	drop sex age
 	outsheet using "`projDir'/outputs/data exploration/cause correlations/pairwiseCorrelations.csv", comma replace
 
 // draw graphs for each cause
