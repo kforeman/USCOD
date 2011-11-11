@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv='Content-Type' content='text/html;charset=utf-8'>
+    <title>US Cause Correlations</title>
+    <script type='text/javascript' src='../d3/d3.js'></script>
+    <script type='text/javascript' src='../d3/d3.csv.js'></script>
+    <script type='text/javascript' src='../d3/d3.time.js'></script>
+	<script type='text/javascript' src='../jquery/jquery-1.5.1.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.core.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.widget.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.mouse.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.button.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.slider.js'></script>
+    <script type='text/javascript' src='../jquery/ui/jquery.ui.selectmenu.js'></script>
+	<script type='text/javascript' src='../jquery/plugins/poshytip/jquery.poshytip.min.js'></script>
+	<link type='text/css' href='../jquery/plugins/poshytip/tip-twitter/tip-twitter.css' rel='stylesheet' /> 
+	<link type='text/css' href='../jquery/themes/gbd-theme-5/jquery-ui-1.8.16.custom.css' rel='stylesheet' /> 
+	<link type='text/css' href='../jquery/themes/base/jquery.ui.selectmenu.css' rel='stylesheet' /> 
+	<style type='text/css'> body { font-family:'Segoe UI', Arial, sans-serif; text-anchor: middle; alignment-baseline: middle; font-size:11pt; } .ui-slider-range { background: #777 !important; } .axis {
+  shape-rendering: crispEdges;
+}
+
+
+.x.axis line, .x.axis path {
+  fill: none;
+  stroke: #aaa;
+}
+
+.y.axis line, .y.axis path {
+  fill: none;
+  stroke: #aaa;
+}</style>
+  </head>
+  <body>
+    <script type='text/javascript'>
+
+// default values
+	var sex = 'M',
+		ageMin = 50,
+		ageMax = 85,
+		cause1 = 'B_1_1',
+		cause2 = 'B_4';
+
+// layout the page/controls
+	var body = d3.select('body');
+
+	// various spacing parameters
+		var chartW = 500,
+			chartH = 300,
+			margin = 10,
+			sliderH = 25,
+			sliderW = 200,
+			sliderTitleW = 50,
+			sliderLabelW = 70,
+			selectTitleW = 75,
+			selectW = 200,
+			axisMargin = 50;
+	
+	// age slider
+		var ageSliderTitle = body.append('div')
+			.style('position', 'absolute')
+			.style('width', sliderTitleW + 'px')
+			.style('left', margin + 'px')
+			.style('top', margin + 'px')
+		  .append('span')
+			.text('Age');
+		var ageSlider = body.append('div')
+			.attr('id', 'ageSlider')
+			.style('position', 'absolute')
+			.style('width', (sliderW - 20) + 'px')
+			.style('left', (margin + sliderTitleW) + 'px')
+			.style('top', (margin + 5) + 'px');
+		$('#ageSlider').slider({ animate: true, min: 0, max: 85, values: [ageMin, ageMax], step: 5, range: true, slide: function(event, ui) { changeAge(ui.values); } });
+		var ageSliderLabel = body.append('div')
+			.style('position', 'absolute')
+			.style('width', sliderLabelW + 'px')
+			.style('left', (margin + sliderTitleW + sliderW) + 'px')
+			.style('top', margin + 'px')
+		  .append('span')
+			.text(ageMin + (ageMax == 85 ? ' plus' : ' to ' + (ageMax+4)));
+		function changeAge(ages) {
+			ageMin = ages[0];
+			ageMax = ages[1];
+			ageSliderLabel.text(ageMin + (ageMax == 85 ? ' plus' : ' to ' + (ageMax+4)));
+			lines.transition().duration(500)
+				.attr('stroke', function(d) {
+					var s = d.key.substr(0,1),
+						a = parseInt(d.key.substr(1));
+					return (s == sex || sex == 'B') && (a >= ageMin && a <= ageMax) ? d3.rgb(55,126,184) : '#bbb';
+				});
+		}
+		
+	// sex radio
+		sexes = [{'sex': 'M', 'sexName': 'Male'}, {'sex': 'F', 'sexName': 'Female'}, {'sex': 'B', 'sexName': 'Both'}];
+		var sexRadioTitle = body.append('div')
+			.style('position', 'absolute')
+			.style('left', (margin) + 'px')
+			.style('top', (margin + sliderH) + 'px')
+		  .append('span')
+			.text('Sex');
+		var sexRadio = body.append('div')
+			.style('position', 'absolute')
+			.style('left', (margin + sliderTitleW) + 'px')
+			.style('top', (margin + sliderH) + 'px')
+		  .append('form')
+		    .attr('id', 'sexRadio');
+		sexes.map(function(s) {
+			sexRadio.append('input')
+				.attr('type', 'radio')
+				.attr('name', 'sexRadio')
+				.attr('id', s.sexName + 'Radio')
+				.attr('value', s.sex)
+				.attr(s.sex == sex ? 'checked' : 'ignoreMe', 'true')
+				.attr('onclick', 'changeSex(this.value)');
+			sexRadio.append('label')
+				.attr('for', s.sexName + 'Radio')
+				.text(s.sexName);
+		})
+		$('#sexRadio').buttonset().css('font-size', 10 + 'px').change(function() { changeSex($('.sexRadio:checked').val()); });
+		function changeSex(s) {
+			sex = s;
+			lines.transition().duration(500)
+				.attr('stroke', function(d) {
+					var s = d.key.substr(0,1),
+						a = parseInt(d.key.substr(1));
+					return (s == sex || sex == 'B') && (a >= ageMin && a <= ageMax) ? d3.rgb(55,126,184) : '#bbb';
+				});
+		}
+	
+	// load in causes of death
+		d3.csv('uscodNames.csv', function(csv) {
+			uscod = csv.filter(function(d) { return d.uscod.substr(0,1) != 'G'; });
+	
+		// dropdown for cause 1
+			var cause1Title = body.append('div')
+				.style('position', 'absolute')
+				.style('left', (margin + sliderTitleW + sliderW + sliderLabelW) + 'px')
+				.style('top', margin + 'px')
+			  .append('span')
+				.text('Cause 1');
+			var cause1Select = body.append('div')
+				.style('position', 'absolute')
+				.style('left', (margin + sliderTitleW + sliderW + sliderLabelW + selectTitleW) + 'px')
+				.style('top', margin + 'px')
+			  .append('select')
+				.attr('id', 'cause1Select')
+				.attr('onchange', 'changeCause(value, cause2)');
+			uscod.map(function(d, i) { 
+				cause1Select.append('option')
+					.attr('value', d.uscod)
+					.text(d.uscodName);
+				if (cause1 == d.uscod) {
+					$('#cause1Select')[0].selectedIndex = i;
+				}
+			});
+			$('#cause1Select').selectmenu({ style: 'popup', width: selectW + 'px' });
+			$('#cause1Select-button').css('font-size', '11px')
+			$('#cause1Select-menu').css('left', (margin + sliderTitleW + sliderW + sliderLabelW + selectTitleW) + 'px').css('width', selectW + 'px').css('font-size', '11px').css('top', margin + 'px');
+	
+		// dropdown for cause 2
+			var cause2Title = body.append('div')
+				.style('position', 'absolute')
+				.style('left', (margin + sliderTitleW + sliderW + sliderLabelW) + 'px')
+				.style('top', (margin + sliderH) + 'px')
+			  .append('span')
+				.text('Cause 2');
+			var cause2Select = body.append('div')
+				.style('position', 'absolute')
+				.style('left', (margin + sliderTitleW + sliderW + sliderLabelW + selectTitleW) + 'px')
+				.style('top', (margin + sliderH) + 'px')
+			  .append('select')
+				.attr('id', 'cause2Select')
+				.attr('onchange', 'changeCause(cause1, value)');
+			uscod.map(function(d,i) { 
+				cause2Select.append('option')
+					.attr('value', d.uscod)
+					.text(d.uscodName);
+				if (cause2 == d.uscod) {
+					$('#cause2Select')[0].selectedIndex = i;
+				}
+			});
+			$('#cause2Select').selectmenu({ style: 'popup', width: selectW + 'px' });
+			$('#cause2Select-button').css('font-size', '11px')
+			$('#cause2Select-menu').css('left', (margin + sliderTitleW + sliderW + sliderLabelW + selectTitleW) + 'px').css('width', selectW + 'px').css('font-size', '11px').css('top', (margin + sliderH) + 'px');
+		});
+
+// build the graph
+	// charting area
+		var chart = body.append('div')
+			.style('position', 'absolute')
+			.style('top', (2*margin + 2*sliderH) + 'px')
+			.style('left', margin + 'px')
+		  .append('svg:svg')
+			.style('background', '#eee')
+			.style('width', chartW + 2*axisMargin)
+			.style('height', chartH + 2*axisMargin);
+
+	// create the axes
+		var	x = d3.scale.linear().range([axisMargin, axisMargin+chartW]).domain([1979,2007]),
+			y = d3.scale.linear().range([chartH+axisMargin, axisMargin]).domain([-1, 1]),
+			xAxis = d3.svg.axis().scale(x).ticks(5).tickSize(-chartH).tickPadding(10),
+			yAxis = d3.svg.axis().scale(y).ticks(4).tickSize(-chartW).tickPadding(10).orient('left');
+		chart.append('svg:g')
+			.attr('class', 'x axis')
+			.attr('transform', 'translate(0,' + (chartH + axisMargin) + ')')
+			.call(xAxis);
+		chart.append('svg:g')
+			.attr('class', 'y axis')
+			.attr('transform', 'translate(' + axisMargin + ',0)')
+			.call(yAxis);
+
+// functions to draw lines
+	// initial drawing function
+		line = d3.svg.line()
+			.x(function(d) { return x(d['year']); })
+			.y(function(d) { 
+				var yvar = cause2 > cause1 ? 'corr_' + cause1 + '_' + cause2 : 'corr_' + cause2 + '_' + cause1;
+				return y(d[yvar]); 
+			})
+			.interpolate('cardinal');
+	
+	// function to change line shapes when changing cause pairs
+		function changeCause(c1, c2) {
+		
+		// change the causes
+			cause1 = c1;
+			cause2 = c2;
+		
+		// change the line function
+			line.y(function(d) {
+				var yvar = cause2 > cause1 ? 'corr_' + cause1 + '_' + cause2 : 'corr_' + cause2 + '_' + cause1;
+				return y(d[yvar]); 
+			});
+		
+		// move the lines
+			lines.transition().duration(500).ease('linear').attr('d', function(d) { return line(d.values); });
+		}
+
+// load in the data
+	d3.csv('pairwiseCorrelations.csv', function(csv) {
+	
+	// nest the data by age and sex
+		data = d3.nest()
+			.key(function(d) { return d.sexAge; })
+			.sortValues(function(a,b) { return a.year-b.year; })
+			.entries(csv);
+
+	// draw the lines
+		lines = chart.selectAll('.line')
+			.data(data)
+		  .enter().append('svg:path')
+			.attr('class', 'line')
+			.attr('d', function(d) { return line(d.values); })
+			.attr('fill', 'none')
+			.attr('stroke', function(d) {
+				var s = d.key.substr(0,1),
+					a = parseInt(d.key.substr(1));
+				return (s == sex || sex == 'B') && (a >= ageMin && a <= ageMax) ? d3.rgb(55,126,184) : '#bbb';
+			})
+			.attr('stroke-opacity', .5)
+			.attr('stroke-width', 2)
+			.attr('title', function(d) { 
+				var s = d.key.substr(0,1) == 'M' ? 'Males' : 'Females',
+					a = d.key.substr(1) == '85' ? '85 plus' : d.key.substr(1) + ' to ' + (parseInt(d.key.substr(1)) + 4);
+				return [s,a].join(' ');
+			})
+			.on('mouseover', function() { d3.select(this).transition().duration(200).style('stroke', d3.rgb(228,26,28)); })
+			.on('mouseout', function() { d3.select(this).transition().duration(200).style('stroke', '')});
+	
+	// add tooltips to the lines
+		$('.line').poshytip({slide: false, className: 'tip-twitter', alignX: 'center', followCursor: true, showTimeout: 0});	
+	});
+
+	</script>
+  </body>
+</html>
