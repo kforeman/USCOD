@@ -96,6 +96,12 @@ Purpose:	plot correlations between causes over time
 	getmata year sex age cause1 cause2 correlation
 	replace correlation = 0 if correlation == .
 	save "`projDir'/outputs/data exploration/cause correlations/pairwiseCorrelations.dta", replace
+
+// save in wide format for the visualization
+	generate pair = cause1 + "_" + cause2
+	drop cause1 cause2
+	rename correlation corr_
+	reshape wide corr_, i(year sex age) j(pair) string
 	outsheet using "`projDir'/outputs/data exploration/cause correlations/pairwiseCorrelations.csv", comma replace
 
 // draw graphs for each cause
