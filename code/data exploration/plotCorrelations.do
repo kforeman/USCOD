@@ -33,8 +33,8 @@ Purpose:	plot correlations between causes over time
 	generate cf = deaths / total_deaths
 
 // reshape so causes are wide
-	keep stateFips uscod year age sex rate deaths cf
-	reshape wide rate deaths cf, i(stateFips year age sex) j(uscod) string
+	keep stateFips uscod year age sex rate cf
+	reshape wide rate cf, i(stateFips year age sex) j(uscod) string
 
 // make looping variables
 	levelsof year, l(years) c
@@ -55,7 +55,6 @@ Purpose:	plot correlations between causes over time
 	mata cause1 = J(`numrows', 1, "")
 	mata cause2 = J(`numrows', 1, "")
 	mata rate_correlation = J(`numrows', 1, .)
-	mata deaths_correlation = J(`numrows', 1, .)
 	mata cf_correlation = J(`numrows', 1, .)
 
 // loop through the years/sexes/ages
@@ -85,8 +84,6 @@ Purpose:	plot correlations between causes over time
 					// find the correlation between the causes
 						quietly correlate rate`c1' rate`c2'
 						mata rate_correlation[`counter'] = `r(rho)'
-						quietly correlate deaths`c1' deaths`c2'
-						mata deaths_correlation[`counter'] = `r(rho)'
 						quietly correlate cf`c1' cf`c2'
 						mata cf_correlation[`counter'] = `r(rho)'
 					}
@@ -101,9 +98,8 @@ Purpose:	plot correlations between causes over time
 // save the results into stata
 	restore, not
 	clear
-	getmata year sex age cause1 cause2 rate_correlation deaths_correlation cf_correlation
+	getmata year sex age cause1 cause2 rate_correlation cf_correlation
 	replace rate_correlation = 0 if rate_correlation == .
-	replace deaths_correlation = 0 if deaths_correlation == .
 	replace cf_correlation = 0 if cf_correlation == .
 	save "`projDir'/outputs/data exploration/cause correlations/pairwiseCorrelations.dta", replace
 
@@ -111,7 +107,6 @@ Purpose:	plot correlations between causes over time
 	generate pair = cause1 + "_" + cause2
 	drop cause1 cause2
 	rename rate_correlation rate_corr_
-	rename deaths_correlation deaths_corr_
 	rename cf_correlation cf_corr_
 	reshape wide *corr_, i(year sex age) j(pair) string
 	generate sexAge = "F" + string(age) if sex == 2
