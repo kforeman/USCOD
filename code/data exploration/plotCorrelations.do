@@ -115,18 +115,22 @@ Purpose:	plot correlations between causes over time
 	outsheet using "`projDir'/outputs/data exploration/cause correlations/pairwiseCorrelations.csv", comma replace
 
 // draw graphs for each cause
-/*	set scheme tufte
-	foreach c of local uscods {
-		replace underlying = subinstr("`c' ``c'_name'", "_", ".", .) if underlying == "`c'"
-	}
-	capture mkdir "`projDir'/outputs/data exploration/multi cause/underlyingpdf"
+	set scheme tufte
+	clear
+	getmata year sex age cause1 cause2 rate_correlation cf_correlation
+	replace rate_correlation = 0 if rate_correlation == .
+	replace cf_correlation = 0 if cf_correlation == .
+	capture mkdir "`projDir'/outputs/data exploration/cause correlations/correlationspdf"
 	preserve
-	foreach c of local uscods {
-		keep if listedCause == "`c'"
-		scatter underlyingProportion year, by(underlying, yrescale title("``c'_name' Anywhere in Part I")) xline(1998.5, lcolor(black)) xline(1988.5, lcolor(gray)) ytitle("Underlying Cause Proportion") xlabel(, labsize(small))
-		graph export "`projDir'/outputs/data exploration/multi cause/underlyingpdf/`c'.pdf", replace
-		restore, preserve
+	foreach c1 of local uscods {
+		foreach c2 of local uscods {
+			if ("`c1'" >= "`c2'") continue
+			keep if cause1 == "`c1'" & cause2 == "`c2'"
+			line rate_correlation year if sex == 1, lcolor(blue) lpattern(solid) || line rate_correlation year if sex == 2, lcolor(red) lpattern(solid) by(age, iyaxes ixaxes title("``c1'_name' & ``c2'_name' Correlation")) ytitle("Correlation") xlabel(, labsize(small)) legend(label(1 "Males") label(2 "Females") rows(1)) yline(0)
+			graph export "`projDir'/outputs/data exploration/cause correlations/correlationspdf/`c1'_`c2'.pdf", replace
+			restore, preserve
+		}
 	}
-	!"C:/ado/pdftk/pdftk.exe" "`projDir'/outputs/data exploration/multi cause/underlyingpdf/*.pdf" cat output "`projDir'/outputs/data exploration/multi cause/underlyingCause.pdf"
-	!rmdir "`projDir'/outputs/data exploration/multi cause/underlyingpdf/" /q /s
-*/
+	!"C:/ado/pdftk/pdftk.exe" "`projDir'/outputs/data exploration/cause correlations/correlationspdf/*.pdf" cat output "`projDir'/outputs/data exploration/cause correlations/correlations.pdf"
+	!rmdir "`projDir'/outputs/data exploration/cause correlations/correlationspdf/" /q /s
+
