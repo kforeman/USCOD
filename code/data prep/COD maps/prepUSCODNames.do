@@ -29,10 +29,11 @@ Purpose:	create a stata merge map of USCOD names
 	outsheet using "`projDir'/data/cod/clean/COD maps/USCOD_names.csv", comma replace
 
 // make a version for menus
-	generate menu_name = subinstr(uscod, "_", ".", .) + " " + uscodName
-	replace menu_name = "&nbsp;&nbsp;" + menu_name if length(uscod) == 1
-	replace menu_name = "&nbsp;&nbsp;&nbsp;&nbsp;" + menu_name if length(uscod) == 3
-	replace menu_name = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + menu_name if length(uscod) == 5
+	drop if substr(uscod, 1, 1) == "G"
+	generate menu_name = subinstr(uscod, "_", ".", .) + ". " + uscodName
+	replace menu_name = "  " + menu_name if length(uscod) == 1
+	replace menu_name = "    " + menu_name if length(uscod) == 3
+	replace menu_name = "      " + menu_name if length(uscod) == 5
 	replace menu_name = "Total Mortality" if uscod == "T"
 	sort uscod
 	generate order = _n
