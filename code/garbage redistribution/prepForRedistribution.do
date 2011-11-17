@@ -75,6 +75,7 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 
 // use Sandeep's code to convert to appropriate FIPS codes
 	quietly do "`projDir'/code/data prep/geo/sandeepsFipsFixer.do" `1'
+	replace mcounty = real(fip) if mcounty == .
 
 // make sure sex is in the right format
 	capture confirm numeric variable sex
@@ -105,7 +106,7 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 // add a couple more variables
 	drop cause*
 	generate year = `1'
-	generate stateFips = substr(string(mcounty),1,2)
+	generate stateFips = substr(string(fip),1,2)
 	replace stateFips = "0" + substr(string(mcounty),1,1) if length(string(mcounty)) == 4
 
 // save the results
