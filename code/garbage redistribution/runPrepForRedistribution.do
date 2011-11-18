@@ -67,3 +67,6 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 		capture rm "`projDir'/logs/scratch/multicause`y'.smcl"
 		capture !erase "`projDir'/logs/scratch/multicause`y'" /s /q
 	}
+
+// run redistribution
+	do "`projDir'/code/garbage redistribution/runRedistributionTest.do"

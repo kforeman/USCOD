@@ -93,31 +93,13 @@ Purpose:	run the redistribution for both icd versions and sexes in parallel (Win
 	compress
 	save "`projDir'/data/cod/clean/redistributed/redistributed.dta", replace
 
-/*
-// convert back to deaths (long format)
-	reshape long cf, i(sex age fips year) j(uscod) string
-	generate deaths = cf * deathsTotal
-	drop deathsTotal cf
-	save "`projDir'/data/cod/clean/redistributed/countyDeaths.dta", replace
-
-// aggregate to deaths by state
-	collapse (sum) deaths, by(stateFips age sex year uscod icd)
-	save "`projDir'/data/cod/clean/redistributed/stateDeaths.dta", replace
-
-// convert back into cause fractions by state
-	bysort sex age year stateFips: egen deathsTotal = sum(deaths)
-	generate cf = deaths / deathsTotal
-	drop deaths
-	reshape wide cf, i(sex age year stateFips) j(uscod) string
-	save "`projDir'/data/cod/clean/redistributed/stateCFs.dta", replace
-
 // delete temporary files
 	foreach s of local sexList {
 		foreach v of local icdList {
-			capture rm "`projDir'/data/cod/clean/redistributed/countyCFs_sex`s'_icd`v'.dta"
-			capture rm "`projDir'/logs/scratch/garbageIcd`v'Sex`s'Finished.txt"
-			capture rm "`projDir'/logs/scratch/icd`v'Sex`s'/redistributeGarbage.log"
+			foreach g of local garbageList {
+				capture rm "`projDir'/logs/scratch/garbageIcd`v'Sex`s'GC`g'Finished.txt"
+				!rmdir "`projDir'/logs/scratch/icd`v'Sex`s'GC`g'/" /s /q
+			}
 		}
 	}
-*/
 
