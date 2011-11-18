@@ -57,7 +57,15 @@ Purpose:	prep data to be used in an epi transition by state model
 	restore
 	merge m:1 stateFips ageGroup sex year using `pop', keep(match) nogen
 
+// clean up some variables, sort, etc
+	rename ageGroup age_group
+	rename stateFips state
+	rename uscod cause
+	destring state, replace
+	order state year sex age cause deaths pop
+	sort state year sex age cause
+
 // save the prepped data for mapping
 	compress
-	save "`projDir'/data/model inputs/epi_transition_by_state.csv", replace
+	save "`projDir'/data/model inputs/epi_transition_by_state.dta", replace
 	outsheet using "`projDir'/data/model inputs/epi_transition_by_state.csv", comma replace
