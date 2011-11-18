@@ -106,7 +106,7 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 // add a couple more variables
 	drop cause*
 	generate year = `1'
-	generate stateFips = substr(string(fip),1,2)
+	generate stateFips = substr(string(mcounty),1,2)
 	replace stateFips = "0" + substr(string(mcounty),1,1) if length(string(mcounty)) == 4
 
 // save the results
