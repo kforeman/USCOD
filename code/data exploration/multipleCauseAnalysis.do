@@ -121,4 +121,4 @@ Purpose:	look at which causes co-occur with diabetes/renal failure/septicaemia
 		restore, preserve
 	}
 	!"C:/ado/pdftk/pdftk.exe" "`projDir'/outputs/data exploration/multi cause/pdftemp/*.pdf" cat output "`projDir'/outputs/data exploration/multi cause/multipleCauses.pdf"
-	!erase "`projDir'/outputs/data exploration/multi cause/pdftemp/" /q
+	!rmdir "`projDir'/outputs/data exploration/multi cause/pdftemp/" /q /s
