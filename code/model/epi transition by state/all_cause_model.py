@@ -121,23 +121,6 @@ def alpha(alpha_samples=alpha_samples):
             ky =    3)
     return interpolator(x=ages, y=years)[a_lookup, t_lookup]
 
-def pi_eval(pi_sample=pi_samples, g=g_list):
-    interpolator = interpolate.fitpack2.RectBivariateSpline(
-            x =     sample_ages,
-            y =     sample_years,
-            z =     pi_sample.reshape((len(sample_ages), len(sample_years))),
-            bbox =  [sample_ages[0], sample_ages[-1], sample_years[0], sample_years[-1]],
-            kx =    3, 
-            ky =    3)    
-    tmp = np.zeros(len(data))
-    tmp[g_indices[g]] = interpolator(x=ages, y=years)[a_by_g[g_list[g]], t_by_g[g_list[g]]]
-    return tmp
-pi = [mc.Deterministic(
-        eval =      pi_eval,
-        name =      'pi_%s' % g,
-        parents =   {'pi_sample': pi_samples[i], 'g': g}) for i,g in enumerate(g_list)]
-
-'''
 @mc.deterministic
 def pi(pi_samples=pi_samples):
     pi_array =  np.zeros(len(data))
@@ -151,7 +134,7 @@ def pi(pi_samples=pi_samples):
                 ky =    3)
         pi_array[g_indices[g]] = interpolator(x=ages, y=years)[a_by_g[i], t_by_g[i]]
     return pi_array
-'''
+
 # find exposure
 E = np.log(data.pop)
 
@@ -186,6 +169,8 @@ for i, g in enumerate(g_list):
 
 # use map to find starting values
 for var_list in [[model.data_likelihood, model.beta, model.rho]] + \
+                [[model.data_likelihood, model.alpha_samples]] + \
+                [[model.data_likelihood, model.beta, model.rho]] + \
                 [[model.data_likelihood, model.alpha_samples]] + \
                 [[model.data_likelihood, g] for g in model.pi_samples]:
     print 'attempting to maximize liklihood of %s' % [v.__name__ for v in var_list]
