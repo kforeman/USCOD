@@ -180,13 +180,95 @@ for var_list in [[model.data_likelihood, model.beta, model.rho]] + \
 # draw some samples
 model.sample(iter=11000, burn=1000, thin=10, verbose=1)
 
+# percentile functions
+def percentile(a, q, axis=None, out=None, overwrite_input=False):
+    a = np.asarray(a)
+
+    if q == 0:
+        return a.min(axis=axis, out=out)
+    elif q == 100:
+        return a.max(axis=axis, out=out)
+
+    if overwrite_input:
+        if axis is None:
+            sorted = a.ravel()
+            sorted.sort()
+        else:
+            a.sort(axis=axis)
+            sorted = a
+    else:
+        sorted = np.sort(a, axis=axis)
+    if axis is None:
+        axis = 0
+
+    return _compute_qth_percentile(sorted, q, axis, out)
+    
+def _compute_qth_percentile(sorted, q, axis, out):
+    if not np.isscalar(q):
+        p = [_compute_qth_percentile(sorted, qi, axis, None)
+             for qi in q]
+
+        if out is not None:
+            out.flat = p
+
+        return p
+    q = q / 100.0
+    if (q < 0) or (q > 1):
+        raise ValueError, "percentile must be either in the range [0,100]"
+
+    indexer = [slice(None)] * sorted.ndim
+    Nx = sorted.shape[axis]
+    index = q*(Nx-1)
+    i = int(index)
+    if i == index:
+        indexer[axis] = slice(i, i+1)
+        weights = np.array(1)
+        sumval = 1.0
+    else:
+        indexer[axis] = slice(i, i+2)
+        j = i + 1
+        weights = np.array([(j - index), (index - i)],float)
+        wshape = [1]*sorted.ndim
+        wshape[axis] = 2
+        weights.shape = wshape
+        sumval = weights.sum()
+    return np.add.reduce(sorted[indexer]*weights, axis=axis, out=out)/sumval
 
 
+# save basic predictions
+predictions = model.trace('predicted')[:]
+mean_prediction = predictions.mean(axis=0)
+lower_prediction = percentile(predictions, 2.5, axis=0)
+upper_prediction = percentile(predictions, 97.5, axis=0)
+output = pl.rec_append_fields(  rec =   data, 
+                                names = ['mean', 'lower', 'upper'], 
+                                arrs =  [mean_prediction, lower_prediction, upper_prediction])
+pl.rec2csv(output, proj_dir + 'outputs/model results/epi transition by state/all_cause_males.csv')
 
+# plot alpha
+from    mpl_toolkits.mplot3d    import axes3d
+import  matplotlib.pyplot       as plt
+from    matplotlib.backends.backend_pdf import PdfPages
+pp = PdfPages(proj_dir + 'outputs/model results/epi transition by state/surfaces.pdf')
+fig = plt.figure()
+ax = fig.gca(projection='3d')
+X,Y = meshgrid(sample_years, sample_ages)
+Z = model.trace('alpha_samples')[:].mean(axis=0).reshape((len(sample_ages), len(sample_years)))
+ax.plot_wireframe(X, Y, Z, cmap=cm.jet)
+ax.set_title('National')
+pp.savefig()
 
+states =    pl.csv2rec(proj_dir + 'data/geo/clean/state_names.csv')
+state_lookup = {}
+for s in states:
+    state_lookup[s.statefips] = s.name
+for g in g_list:
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    Z = model.trace('pi_%s_samples' % g)[:].mean(axis=0).reshape((len(sample_ages), len(sample_years)))
+    ax.plot_wireframe(X, Y, Z, cmap=cm.jet)
+    ax.set_title(state_lookup[g])
+    pp.savefig()
+    plt.close()
 
-
-
-
-
-
+pp.close()
