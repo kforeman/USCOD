@@ -109,7 +109,7 @@ pi_samples = [mc.MvNormalCov(
         value =     np.zeros(sample_points.shape[0]))
         for g in g_list]
 
-# deterministic functions to extrapolate out by age/year
+# deterministic function to extrapolate out national pattern by age/year
 @mc.deterministic
 def alpha(alpha_samples=alpha_samples):
     interpolator = interpolate.fitpack2.RectBivariateSpline(
@@ -121,6 +121,7 @@ def alpha(alpha_samples=alpha_samples):
             ky =    3)
     return interpolator(x=ages, y=years)[a_lookup, t_lookup]
 
+# deterministics to extrapolate state level random effects out by age/year
 def pi_interp(pi_sample):
     interpolator = interpolate.fitpack2.RectBivariateSpline(
             x =     sample_ages,
@@ -130,13 +131,12 @@ def pi_interp(pi_sample):
             kx =    3, 
             ky =    3)
     return interpolator(x=ages, y=years)
-
 pi_list = [mc.Deterministic(
             eval =      pi_interp,
             name =      'pi_%s' % g,
-            parents =   {'pi_sample': pi_samples[i]}) 
+            parents =   {'pi_sample': pi_samples[i]},
+            doc =       'Random effect for state %s' % g) 
           for i, g in enumerate(g_list)]
-
 @mc.deterministic
 def pi(pi_list=pi_list):
     pi_array =  np.zeros(len(data))
