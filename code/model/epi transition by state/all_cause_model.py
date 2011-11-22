@@ -245,7 +245,7 @@ output = pl.rec_append_fields(  rec =   data,
                                 arrs =  [mean_prediction, lower_prediction, upper_prediction])
 pl.rec2csv(output, proj_dir + 'outputs/model results/epi transition by state/all_cause_males.csv')
 
-# plot alpha
+# plot surfaces
 from    mpl_toolkits.mplot3d    import axes3d
 import  matplotlib.pyplot       as plt
 from    matplotlib.backends.backend_pdf import PdfPages
@@ -257,7 +257,6 @@ Z = model.trace('alpha_samples')[:].mean(axis=0).reshape((len(sample_ages), len(
 ax.plot_wireframe(X, Y, Z, cmap=cm.jet)
 ax.set_title('National')
 pp.savefig()
-
 states =    pl.csv2rec(proj_dir + 'data/geo/clean/state_names.csv')
 state_lookup = {}
 for s in states:
@@ -270,5 +269,25 @@ for g in g_list:
     ax.set_title(state_lookup[g])
     pp.savefig()
     plt.close()
+pp.close()
 
+# plot predictions
+pp = PdfPages(proj_dir + 'outputs/model results/epi transition by state/predictions.pdf')
+for g in g_list:
+    d = output[output.state == g]
+    fig = plt.figure()
+    axis_num = 0
+    for a in ages:
+        dd = d[d.age_group == a]
+        axis_num += 1
+        ax = plt.subplot(2, 3, axis_num)
+        plt.plot(dd.year, dd.deaths, 'wo')
+        if axis_num == 2:
+            ax.set_title(state_lookup[g] + '\n%s' % a)
+        else:
+            ax.set_title(a)
+        plt.fill_between(dd.year, dd.lower, dd.upper, color='cyan')
+        plt.plot(dd.year, dd['mean'], 'b-')
+    pp.savefig()
+    plt.close()
 pp.close()
