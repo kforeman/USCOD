@@ -28,6 +28,10 @@ sample_ages =   ages
 years =         np.unique(data.year)
 sample_years =  np.arange(np.floor(np.min(data.year)/5.)*5., np.ceil(np.max(data.year)/5.)*5.+5., 5.)
 states =        np.unique(data.state)
+state_names =   pl.csv2rec(proj_dir + 'data/geo/clean/state_names.csv')
+state_lookup = {}
+for s in state_names:
+    state_lookup[s.statefips] = s.name
 
 # index data by state, age, and year
 g_list      = dict([(g, i) for i, g in enumerate(states)])
@@ -110,38 +114,45 @@ pi_samples = [mc.MvNormalCov(
         for g in g_list]
 
 # deterministic function to extrapolate out national pattern by age/year
-@mc.deterministic
-def alpha(alpha_samples=alpha_samples):
+def alpha_interpolator(alpha_samples):
     interpolator = interpolate.fitpack2.RectBivariateSpline(
-            x =     sample_ages, 
-            y =     sample_years, 
-            z =     alpha_samples.reshape((len(sample_ages), len(sample_years))), 
-            bbox =  [sample_ages[0], sample_ages[-1], sample_years[0], sample_years[-1]],
-            kx =    3, 
-            ky =    3)
-    return interpolator(x=ages, y=years)[a_lookup, t_lookup]
+        x =     sample_ages,
+        y =     sample_years,
+        z =     alpha_samples.reshape((len(sample_ages), len(sample_years))),
+        bbox =  [sample_ages[0], sample_ages[-1], sample_years[0], sample_years[-1]],
+        kx =    3,
+        ky =    3)
+    return interpolator(x=ages, y=years)
+alpha_surf = mc.Deterministic(
+                eval =      alpha_interpolator,
+                name =      'alpha_surf',
+                parents =   {'alpha_samples': alpha_samples},
+                doc =       'National random effect surface')
+@mc.deterministic
+def alpha_re(alpha_surf=alpha_surf):
+    return alpha_surf[a_lookup, t_lookup]
 
 # deterministics to extrapolate state level random effects out by age/year
-def pi_interp(pi_sample):
+def pi_interpolator(pi_sample):
     interpolator = interpolate.fitpack2.RectBivariateSpline(
-            x =     sample_ages,
-            y =     sample_years,
-            z =     pi_sample.reshape((len(sample_ages), len(sample_years))),
-            bbox =  [sample_ages[0], sample_ages[-1], sample_years[0], sample_years[-1]],
-            kx =    3, 
-            ky =    3)
+        x =     sample_ages,
+        y =     sample_years,
+        z =     pi_sample.reshape((len(sample_ages), len(sample_years))),
+        bbox =  [sample_ages[0], sample_ages[-1], sample_years[0], sample_years[-1]],
+        kx =    3, 
+        ky =    3)
     return interpolator(x=ages, y=years)
-pi_list = [mc.Deterministic(
-            eval =      pi_interp,
-            name =      'pi_%s' % g,
+pi_surf = [mc.Deterministic(
+            eval =      pi_interpolator,
+            name =      'pi_surf_%s' % g,
             parents =   {'pi_sample': pi_samples[i]},
-            doc =       'Random effect for state %s' % g) 
+            doc =       'Random effect surface for state %s (%s)' % (g, state_lookup[g])) 
           for i, g in enumerate(g_list)]
 @mc.deterministic
-def pi(pi_list=pi_list):
+def pi_re(pi_surf=pi_surf):
     pi_array =  np.zeros(len(data))
     for i, g in enumerate(g_list):
-        pi_array[g_indices[g]] = pi_list[i][a_by_g[i], t_by_g[i]]
+        pi_array[g_indices[g]] = pi_surf[i][a_by_g[i], t_by_g[i]]
     return pi_array
 
 # find exposure
@@ -149,8 +160,8 @@ E = np.log(data.pop)
 
 # prediction from above parameters
 @mc.deterministic
-def predicted(beta=beta, alpha=alpha, pi=pi):
-    return np.round(np.exp(np.vstack([alpha, pi]).sum(axis=0) + beta))
+def predicted(beta=beta, alpha_re=alpha_re, pi_re=pi_re):
+    return np.round(np.exp(np.vstack([alpha_re, pi_re]).sum(axis=0) + beta))
 
 # overdispersion parameter
 rho = mc.Normal('rho', mu=8., tau=.1, value=8.)
@@ -181,23 +192,23 @@ for var_list in [[model.data_likelihood, model.beta, model.rho]] + \
                 [[model.data_likelihood, model.alpha_samples]] + \
                 [[model.data_likelihood, model.beta, model.rho]] + \
                 [[model.data_likelihood, model.alpha_samples]] + \
+                [[model.data_likelihood, model.alpha_samples, model.beta, model.rho]] + \
                 [[model.data_likelihood, g] for g in model.pi_samples]:
     print 'attempting to maximize liklihood of %s' % [v.__name__ for v in var_list]
     mc.MAP(var_list).fit(method='fmin_powell', verbose=1)
     print ''.join(['%s: %s\n' % (v.__name__, v.value) for v in var_list[1:]])
 
 # draw some samples
-model.sample(iter=11000, burn=1000, thin=10, verbose=1)
+model.sample(iter=6000, burn=1000, thin=5, verbose=1)
+# model.sample(iter=1, burn=0, thin=1, verbose=1)
 
 # percentile functions
 def percentile(a, q, axis=None, out=None, overwrite_input=False):
     a = np.asarray(a)
-
     if q == 0:
         return a.min(axis=axis, out=out)
     elif q == 100:
         return a.max(axis=axis, out=out)
-
     if overwrite_input:
         if axis is None:
             sorted = a.ravel()
@@ -209,22 +220,17 @@ def percentile(a, q, axis=None, out=None, overwrite_input=False):
         sorted = np.sort(a, axis=axis)
     if axis is None:
         axis = 0
-
     return _compute_qth_percentile(sorted, q, axis, out)
-    
 def _compute_qth_percentile(sorted, q, axis, out):
     if not np.isscalar(q):
         p = [_compute_qth_percentile(sorted, qi, axis, None)
              for qi in q]
-
         if out is not None:
             out.flat = p
-
         return p
     q = q / 100.0
     if (q < 0) or (q > 1):
         raise ValueError, "percentile must be either in the range [0,100]"
-
     indexer = [slice(None)] * sorted.ndim
     Nx = sorted.shape[axis]
     index = q*(Nx-1)
@@ -243,38 +249,36 @@ def _compute_qth_percentile(sorted, q, axis, out):
         sumval = weights.sum()
     return np.add.reduce(sorted[indexer]*weights, axis=axis, out=out)/sumval
 
+import time
+print 'Finished at %s' % time.ctime()
 
 # save basic predictions
-predictions = model.trace('predicted')[:]
-mean_prediction = predictions.mean(axis=0)
-lower_prediction = percentile(predictions, 2.5, axis=0)
-upper_prediction = percentile(predictions, 97.5, axis=0)
-output = pl.rec_append_fields(  rec =   data, 
-                                names = ['mean', 'lower', 'upper'], 
-                                arrs =  [mean_prediction, lower_prediction, upper_prediction])
+predictions =       model.trace('predicted')[:]
+mean_prediction =   predictions.mean(axis=0)
+lower_prediction =  percentile(predictions, 2.5, axis=0)
+upper_prediction =  percentile(predictions, 97.5, axis=0)
+output =            pl.rec_append_fields(  rec =   data, 
+                        names = ['mean', 'lower', 'upper'], 
+                        arrs =  [mean_prediction, lower_prediction, upper_prediction])
 pl.rec2csv(output, proj_dir + 'outputs/model results/epi transition by state/all_cause_males.csv')
 
 # plot surfaces
 from    mpl_toolkits.mplot3d    import axes3d
 import  matplotlib.pyplot       as plt
 from    matplotlib.backends.backend_pdf import PdfPages
-pp = PdfPages(proj_dir + 'outputs/model results/epi transition by state/surfaces.pdf')
-fig = plt.figure()
-ax = fig.gca(projection='3d')
-X,Y = meshgrid(sample_years, sample_ages)
-Z = model.trace('alpha_samples')[:].mean(axis=0).reshape((len(sample_ages), len(sample_years)))
-ax.plot_wireframe(X, Y, Z, cmap=cm.jet)
+pp =    PdfPages(proj_dir + 'outputs/model results/epi transition by state/surfaces.pdf')
+fig =   plt.figure()
+ax =    fig.gca(projection='3d')
+X,Y =   np.meshgrid(years, ages)
+Z =     model.trace('alpha_surf')[:].mean(axis=0)
+ax.plot_wireframe(X, Y, Z)
 ax.set_title('National')
 pp.savefig()
-states =    pl.csv2rec(proj_dir + 'data/geo/clean/state_names.csv')
-state_lookup = {}
-for s in states:
-    state_lookup[s.statefips] = s.name
 for g in g_list:
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    Z = model.trace('pi_%s_samples' % g)[:].mean(axis=0).reshape((len(sample_ages), len(sample_years)))
-    ax.plot_wireframe(X, Y, Z, cmap=cm.jet)
+    fig =   plt.figure()
+    ax =    fig.gca(projection='3d')
+    Z =     model.trace('pi_surf_%s' % g)[:].mean(axis=0)
+    ax.plot_wireframe(X, Y, Z, color='#315B7E')
     ax.set_title(state_lookup[g])
     pp.savefig()
     plt.close()
@@ -283,20 +287,20 @@ pp.close()
 # plot predictions
 pp = PdfPages(proj_dir + 'outputs/model results/epi transition by state/predictions.pdf')
 for g in g_list:
-    d = output[output.state == g]
-    fig = plt.figure()
+    d =     output[output.state == g]
+    fig =   plt.figure()
     axis_num = 0
     for a in ages:
-        dd = d[d.age_group == a]
+        dd =    d[d.age_group == a]
         axis_num += 1
-        ax = plt.subplot(2, 3, axis_num)
+        ax =    plt.subplot(2, 3, axis_num)
         plt.plot(dd.year, dd.deaths, 'wo')
         if axis_num == 2:
             ax.set_title(state_lookup[g] + '\n%s' % a)
         else:
             ax.set_title(a)
-        plt.fill_between(dd.year, dd.lower, dd.upper, color='cyan')
-        plt.plot(dd.year, dd['mean'], 'b-')
+        plt.fill_between(dd.year, dd.lower, dd.upper, color='#B1DCFE')
+        plt.plot(dd.year, dd['mean'], 'b-', color='#315B7E')
     pp.savefig()
     plt.close()
 pp.close()
