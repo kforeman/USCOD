@@ -199,7 +199,7 @@ for var_list in [[model.data_likelihood, model.beta, model.rho]] + \
     print ''.join(['%s: %s\n' % (v.__name__, v.value) for v in var_list[1:]])
 
 # draw some samples
-model.sample(iter=6000, burn=1000, thin=5, verbose=1)
+model.sample(iter=11000, burn=1000, thin=10, verbose=1)
 # model.sample(iter=1, burn=0, thin=1, verbose=1)
 
 # percentile functions
@@ -299,7 +299,7 @@ for g in g_list:
             ax.set_title(state_lookup[g] + '\n%s' % a)
         else:
             ax.set_title(a)
-        plt.fill_between(dd.year, dd.lower, dd.upper, color='#B1DCFE')
+        plt.fill_between(dd.year, dd.lower, dd.upper, facecolor='#B1DCFE')
         plt.plot(dd.year, dd['mean'], 'b-', color='#315B7E')
     pp.savefig()
     plt.close()
