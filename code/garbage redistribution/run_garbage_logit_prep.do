@@ -28,7 +28,7 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 		capture rm "multicause`y'.txt"
 		
 	// start running the program
-		winexec "C:/Program Files (x86)/Stata12/StataMP-64.exe" /e do \"`projDir'/code/garbage redistribution/prepForRedistribution.do\" `y'
+		winexec "C:/Program Files (x86)/Stata12/StataMP-64.exe" /e do \"`projDir'/code/garbage redistribution/prep_garbage_for_logit_model.do\" `y'
 		
 	// switch back to the main scratch directory
 		cd ..

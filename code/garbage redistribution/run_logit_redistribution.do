@@ -40,7 +40,7 @@ Purpose:	run the redistribution for both icd versions and sexes in parallel (Win
 				capture rm "garbageIcd`v'Sex`s'GC`g'Finished.txt"
 		
 			// start running the program
-				winexec "C:/Program Files (x86)/Stata12/StataMP-64.exe" /e do \"`projDir'/code/garbage redistribution/redistributeGarbageTest.do\" `g' `v' `s'
+				winexec "C:/Program Files (x86)/Stata12/StataMP-64.exe" /e do \"`projDir'/code/garbage redistribution/redistribute_garbage_logit_model.do\" `g' `v' `s'
 		
 			// switch back to the main scratch directory
 				cd ..
