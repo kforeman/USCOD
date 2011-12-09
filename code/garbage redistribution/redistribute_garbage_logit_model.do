@@ -22,7 +22,7 @@ Inputs:		parameter 1: garbage code
 
 // load in cause list
 	use "`projDir'/data/cod/clean/COD maps/USCOD_names.dta", clear
-	drop if inlist(uscod, "A", "B", "B_1", "B_3", "C", "C_1", "C_2", "G")
+	drop if inlist(uscod, "A", "B", "B_1", "B_3", "C", "C_1", "C_2", "G", "T")
 	drop if substr(uscod, 1, 1) == "G"
 	levelsof uscod, l(uscods) c
 
