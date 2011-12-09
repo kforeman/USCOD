@@ -39,8 +39,8 @@ Inputs:		parameter 1: garbage code
 	local targets = targets[1]
 
 // load in data
-	if `2' == 9 use if sex == `3' & year < `icdSwitchYear' & (`1' == 1 | underlying == "`c'") using "`projDir'/data/cod/clean/garbage inputs/matchingTestDataset.dta", clear
-	else if `2' == 10 use if sex == `3' & year >= `icdSwitchYear' & (`1' == 1 | underlying == "`c'") using "`projDir'/data/cod/clean/garbage inputs/matchingTestDataset.dta", clear
+	if `2' == 9 use if sex == `3' & year < `icdSwitchYear' & (`1' == 1 | underlying == "`1'") using "`projDir'/data/cod/clean/garbage inputs/matchingTestDataset.dta", clear
+	else if `2' == 10 use if sex == `3' & year >= `icdSwitchYear' & (`1' == 1 | underlying == "`1'") using "`projDir'/data/cod/clean/garbage inputs/matchingTestDataset.dta", clear
 
 // just write the temp file if this garbage code is non-existent for this sex/icd
 	count
@@ -72,13 +72,13 @@ Inputs:		parameter 1: garbage code
 	// run the regression
 		capture logit target year iA* iR* iP* iS* A_* B_* C_* G_*, iterate(20)
 		if _rc {
-			generate estProp`c' = 0
+			generate estProp`t' = 0
 			drop target
 			continue
 		}
 	
 	// predict for each of the garbage codes
-		predict estProp`c', pr
+		predict estProp`t', pr
 		drop target
 	}
 
