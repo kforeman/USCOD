@@ -52,7 +52,7 @@ Y_g,t,a ~ NegativeBinomial(mu_g,t,a , omega)
 
     Y_g,t,a	    <- observed deaths in a state/year/age
 
-    mu_g,t,a	<- exp(beta_0 + pi_g,t,a + ln(E_g,t,a) + eps_g,t,a)
+    mu_g,t,a	<- exp(beta + pi_g,t,a + ln(E_g,t,a) + eps_g,t,a)
 
         beta        ~ Normal(0, 100)
                       overall intercept (mean total mortality rate across state/year/age)
@@ -60,7 +60,7 @@ Y_g,t,a ~ NegativeBinomial(mu_g,t,a , omega)
         alpha_t,a   ~ MVN(0, matern(y, a))
                       smooth surface over time/age which describes deviation from overall mean
 
-        pi_g,t,a    ~ MVN(0, matern_g(y, a))
+        pi_g,t,a    ~ MVN(alpha_t,a, matern_g(y, a))
                       smooth surface over time/age which describes how state g deviates from national mortality pattern
         
         E           <- exposure (i.e. population)
@@ -199,7 +199,7 @@ for var_list in [[model.data_likelihood, model.beta, model.rho]] + \
     print ''.join(['%s: %s\n' % (v.__name__, v.value) for v in var_list[1:]])
 
 # draw some samples
-model.sample(iter=11000, burn=1000, thin=10, verbose=1)
+model.sample(iter=100000, burn=90000, thin=10, verbose=1)
 # model.sample(iter=1, burn=0, thin=1, verbose=1)
 
 # percentile functions
@@ -271,7 +271,7 @@ fig =   plt.figure()
 ax =    fig.gca(projection='3d')
 X,Y =   np.meshgrid(years, ages)
 Z =     model.trace('alpha_surf')[:].mean(axis=0)
-ax.plot_wireframe(X, Y, Z)
+ax.plot_wireframe(X, Y, Z, color='#315B7E')
 ax.set_title('National')
 pp.savefig()
 for g in g_list:
@@ -299,7 +299,9 @@ for g in g_list:
             ax.set_title(state_lookup[g] + '\n%s' % a)
         else:
             ax.set_title(a)
-        plt.fill_between(dd.year, dd.lower, dd.upper, facecolor='#B1DCFE')
+        for tick in ax.xaxis.get_major_ticks():
+            tick.label.set_fontsize(8) 
+        plt.fill_between(dd.year, dd.lower, dd.upper, color='#B1DCFE')
         plt.plot(dd.year, dd['mean'], 'b-', color='#315B7E')
     pp.savefig()
     plt.close()
