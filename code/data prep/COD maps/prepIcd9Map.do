@@ -31,3 +31,4 @@ Purpose:	create a stata merge map of ICD9 codes to USCOD
 // save in Stata format
 	compress
 	save "`projDir'/data/cod/clean/COD maps/ICD9_to_USCOD.dta", replace
+	outsheet using "`projDir'/data/cod/clean/COD maps/ICD9_to_USCOD.csv", comma replace
