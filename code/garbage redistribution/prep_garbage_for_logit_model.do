@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
-Created:	10 Nov 2011
-Updated:	10 Nov 2011
+Created:	10 November 2011
+Updated:	9 December 2011
 Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching approach for garbage redistribution
 */
 
@@ -15,7 +15,6 @@ Purpose:	build a dataset appropriate for testing Gretchen and Gary's matching ap
 
 // in order to use Sandeep's code for fixing FIPS codes, need to specify where all his stuff is located
 	global merge "`projDir'/data/geo/raw/sandeeps merge maps/"
-	
 	local icdSwitchYear 1999
 
 // load in list of USCOD codes
