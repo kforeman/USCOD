@@ -32,10 +32,9 @@
 
 # loop through the packages
 	for (g in unique(uscod_list[substr(uscod_list$uscod,1,1)=='G','uscod'])) {
-	# for (g in 'G_8') {
 		for (s in sex_list) {
 			for (v in icd_list) {
-				if (g == 'G_10' & v == 9) next
+				if (g == 'G_9' & v == 9) next
 				
 			# load in the redistribution results
 				g_data <- read.dta(paste(proj_dir, '/data/cod/clean/redistributed/redistributed_sex', s, '_icd', v, '_GC', g, '.dta', sep=''))
