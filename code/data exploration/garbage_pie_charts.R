@@ -1,6 +1,6 @@
 # Author:	Kyle Foreman
 # Created:	8 December 2011
-# Updated:	8 December 2011
+# Updated:	9 December 2011
 # Purpose:	make a pie charts of where garbage is going
 
 # setup directory info for this project
