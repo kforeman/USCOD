@@ -28,6 +28,7 @@
 # open a pdf 
 	pdf(file=paste(proj_dir, 'outputs/data exploration/garbage/garbage_pie_charts.pdf', sep='/'), width=14, height=8)
 	par(mfrow=c(2,3), oma=c(0, 0, 1, 0))
+	library(ggplot2)
 
 # loop through the packages
 	for (g in unique(uscod_list[substr(uscod_list$uscod,1,1)=='G','uscod'])) {
@@ -47,6 +48,9 @@
 				g_data[30 <= g_data$age & g_data$age <= 44, 'age_group'] <- '30 to 44'
 				g_data[45 <= g_data$age & g_data$age <= 59, 'age_group'] <- '45 to 59'
 				g_data[60 <= g_data$age, 'age_group'] <- '60 plus'
+			
+			# find how many years this data covers
+				num_years <- length(unique(g_data$year))
 			
 			# collapse to national proportions
 				all_ages <- aggregate(deaths ~ underlying, g_data, sum)
@@ -73,7 +77,7 @@
 						plot.new()
 						next
 					}
-					pie(d$proportion, labels=d$uscodName, col=d$color, main=a)
+					pie(d$proportion, labels=d$uscodName, col=d$color, main=paste(a, '\n', comma(round(totals[totals$age_group == a, 'deaths'] / num_years)), 'deaths/year'))
 				}
 				title(paste(uscod_list[uscod_list$uscod==g, 'uscodName'], 'ICD', v, ifelse(s==1, 'Male', 'Female')), outer=TRUE)
 			}
