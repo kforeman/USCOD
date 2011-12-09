@@ -26,6 +26,18 @@ Inputs:		parameter 1: garbage code
 	drop if substr(uscod, 1, 1) == "G"
 	levelsof uscod, l(uscods) c
 
+// load in list of garbage targets for this code
+	import excel using "`projDir'/data/cod/raw/GC/garbageRedistribution.xlsx", clear sheet("Garbage") firstrow
+
+// create a new variable that lists the targets for this GC
+	generate targets = ""
+	foreach t of local uscods {
+		if substr("`t'", 1, 1) == "G" continue
+		replace targets = targets + "`t' " if `t' == 1
+	}
+	keep if GC == "`1'"
+	local targets = targets[1]
+
 // load in data
 	if `2' == 9 use if sex == `3' & year < `icdSwitchYear' & (`1' == 1 | underlying == "`c'") using "`projDir'/data/cod/clean/garbage inputs/matchingTestDataset.dta", clear
 	else if `2' == 10 use if sex == `3' & year >= `icdSwitchYear' & (`1' == 1 | underlying == "`c'") using "`projDir'/data/cod/clean/garbage inputs/matchingTestDataset.dta", clear
@@ -51,11 +63,11 @@ Inputs:		parameter 1: garbage code
 	xi i.place, prefix(iP)
 	xi i.state, prefix(iS)
 
-// loop through each cause of death
-	foreach c of local uscods {
+// loop through each target cause of death
+	foreach t of local targets {
 	
 	// mark each observation for whether it contains that underlying cause
-		generate target = (underlying == "`c'")
+		generate target = (underlying == "`t'")
 	
 	// run the regression
 		capture logit target year iA* iR* iP* iS* A_* B_* C_* G_*, iterate(20)
@@ -72,8 +84,8 @@ Inputs:		parameter 1: garbage code
 
 // scale the probabilities so that they sum to 1
 	egen totalEstProp = rowtotal(estProp*)
-	foreach c of local uscods {
-		replace estProp`c' = estProp`c' / totalEstProp
+	foreach t of local targets {
+		replace estProp`t' = estProp`t' / totalEstProp
 	}
 
 // keep just the garbage with its redistribution proportions
