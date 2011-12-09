@@ -46,7 +46,7 @@ Purpose:	make a matrix of where the garbage flows to put into a cool d3 visualiz
 		foreach s of local sex_list {
 		// loop through each redistribution set
 			foreach g of local gcs {
-				if ("`g'" == "G_10" & `v' == 9) continue
+				if ("`g'" == "G_9" & `v' == 9) continue
 			
 			// load in the redistributed data for this GC
 				use "`proj_dir'/data/cod/clean/redistributed/redistributed_sex`s'_icd`v'_GC`g'.dta", clear
