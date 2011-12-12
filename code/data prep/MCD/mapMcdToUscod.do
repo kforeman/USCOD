@@ -35,8 +35,8 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	// any ICD codes that are missing from our map (i.e. are probably typos) put down as ill-defined
 		replace uscod = "G_5" if uscod == ""
 
-	// find counts of deaths by COD/age/sex/fips/year
-		collapse (sum) deaths, by(uscod age sex fips year)
+	// find counts of deaths by COD/age/sex/mcounty/year
+		collapse (sum) deaths, by(uscod age sex mcounty year)
 	
 	// save a tempfile for this year
 		quietly compress
@@ -51,8 +51,8 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 	}
 
 // split FIPS into state/county
-	generate stateFips = substr(fips,1,2)
-	generate countyFips = substr(fips,3,3)
+	generate stateFips = substr(string(mcounty),1,2)
+	generate countyFips = substr(string(mcounty),3,3)
 
 // add ICD version variable
 	generate icd = 9
@@ -65,13 +65,13 @@ Purpose:	convert ICD to COD and save aggregated datasets by county/state
 
 // create cause fractions (wide) by county
 	levelsof uscod, l(uscods) c
-	reshape wide deaths, i(fips sex age year) j(uscod `uscods') string
+	reshape wide deaths, i(mcounty sex age year) j(uscod `uscods') string
 	egen deathsTotal = rowtotal(deaths*)
 	foreach u of local uscods {
 		generate cf`u' = deaths`u' / deathsTotal
 		replace cf`u' = 0 if cf`u' == .
 	}
-	keep fips countyFips stateFips sex age year icd deathsTotal cf*
+	keep mcounty countyFips stateFips sex age year icd deathsTotal cf*
 	save "`projDir'/data/cod/clean/deaths by USCOD/countyCFs.dta", replace
 
 // collapse to deaths by state

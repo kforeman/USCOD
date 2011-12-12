@@ -11,7 +11,7 @@ Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 	else local projDir "/shared/projects/`proj'"
 
 // setup parameters specific to this code
-	local startYear = 		1995
+	local startYear = 		1991
 	local endYear = 		2007
 	local icdSwitchYear =	1999
 
@@ -61,6 +61,9 @@ Purpose:	create cause of death numbers by county/age/sex/year/ICD from MCD data
 
 	// make a column to count how many deaths there are
 		quietly generate deaths = 1
+
+	// for now, replace mcounty with state + 999 for those places in which county is missing (1991-1997)
+		if inrange(`y', 1991, 1997) replace mcounty = real(stateres_fips + "999")
 
 	// find counts of deaths by cause/age/sex/fips
 		collapse (sum) deaths, by(cause age sex mcounty)
