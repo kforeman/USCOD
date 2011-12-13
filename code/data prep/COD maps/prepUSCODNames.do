@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
-Created:	25 Oct 2011
-Updated:	25 Oct 2011
+Created:	25 October 2011
+Updated:	13 December 2011
 Purpose:	create a stata merge map of USCOD names
 */
 
@@ -20,6 +20,7 @@ Purpose:	create a stata merge map of USCOD names
 	set obs `newobs'
 	replace uscod = "T" in `newobs'
 	replace uscodName = "Total" in `newobs'
+	replace short_name = "all" in `newobs'
 
 // save in Stata format
 	compress
