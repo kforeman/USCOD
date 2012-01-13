@@ -20,8 +20,11 @@ Purpose:	find spatial correlation of top 10 causes
 // add on population
 	merge m:1 stateFips year sex age using "`proj_dir'/data/pop/clean/statePopulations.dta", nogen keep(match)
 	
-// combine into 30-44, 45-59, and 60+
-	generate age_group = "30to44" if inrange(age, 30, 44)
+// combine into broader groups
+	generate age_group = "Under5" if inrange(age, 0, 4)
+	replace age_group = "5to14" if inrange(age, 5, 14)
+	replace age_group = "15to29" if inrange(age, 15, 29)
+	replace age_group = "30to44" if inrange(age, 30, 44)
 	replace age_group = "45to59" if inrange(age, 45, 59)
 	replace age_group = "60plus" if age >= 60
 	drop if age_group == ""
@@ -42,7 +45,7 @@ Purpose:	find spatial correlation of top 10 causes
 	save `dt', replace
 
 // loop through age/sex
-	foreach a in "30to44" "45to59" "60plus" {
+	foreach a in "Under5" "5to14" "15to29" "30to44" "45to59" "60plus" {
 		foreach s in 1 2 {
 			use `dt', clear
 			local sx = cond(`s'==1, "Male", "Female")
