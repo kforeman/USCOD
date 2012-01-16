@@ -16,6 +16,10 @@ Purpose:	find spatial correlation of top 10 causes
 
 // collapse down by state
 	collapse (sum) deaths, by(stateFips age sex year underlying)
+	
+// square up
+	fillin stateFips age sex year underlying
+	replace deaths = 0 if _fillin
 
 // add on population
 	merge m:1 stateFips year sex age using "`proj_dir'/data/pop/clean/statePopulations.dta", nogen keep(match)
