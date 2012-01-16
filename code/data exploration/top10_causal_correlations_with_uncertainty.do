@@ -46,8 +46,8 @@ Purpose:	find spatial correlation of top 10 causes
 	save `dt', replace
 
 // loop through age/sex
-	foreach a in "Under5" "5to14" "15to29" "30to44" "45to59" "60to74" "75plus" {
-		foreach s in 1 2 {
+	foreach s in 1 2 {
+		foreach a in "Under5" "5to14" "15to29" "30to44" "45to59" "60to74" "75plus" {
 			use `dt', clear
 			local sx = cond(`s'==1, "Male", "Female")
 			keep if age_group == "`a'" & sex == `s'
@@ -117,12 +117,9 @@ Purpose:	find spatial correlation of top 10 causes
 		// fill in the correlations
 			forvalues c1 = 1 / 10 {
 				forvalues c2 = 1 / 10 {
-					if (`c1' > `c2') {
-						local t `c1'
-						local c1 `c2'
-						local c2 `t'
-					}
-					replace corr_`c1' = string(round(mean_`c1'_`c2', .03)) + " [" + string(round(lo_`c1'_`c2', 3)) + ", " + string(round(hi_`c1'_`c2', 3)) + ")" in `c2'
+					if (`c1' > `c2') local val = string(round(mean_`c2'_`c1', .001)) + " [" + string(round(lo_`c2'_`c1', .001)) + ", " + string(round(hi_`c2'_`c1', .001)) + "]"
+					else local val = string(round(mean_`c1'_`c2', .001)) + " [" + string(round(lo_`c1'_`c2', .001)) + ", " + string(round(hi_`c1'_`c2', .001)) + "]"
+					replace corr_`c1' = "`val'" in `c2'
 				}
 			}
 
