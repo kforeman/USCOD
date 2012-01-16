@@ -82,8 +82,8 @@ Purpose:	find spatial correlation of top 10 causes
 					forvalues i = 1 / 1000 {
 					
 					// draw rates for each cause
-						generate r1 = rbinomial(pop, (deaths`r_`c1'' / pop))
-						generate r2 = rbinomial(pop, (deaths`r_`c2'' / pop))
+						generate r1 = rbinomial(pop, (deaths`r_`c1'' / pop)) / pop
+						generate r2 = rbinomial(pop, (deaths`r_`c2'' / pop)) / pop
 					
 					// find the correlation
 						correlate r1 r2
