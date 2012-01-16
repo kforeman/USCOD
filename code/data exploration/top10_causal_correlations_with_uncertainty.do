@@ -17,6 +17,10 @@ Purpose:	find spatial correlation of top 10 causes
 // collapse down by state
 	collapse (sum) deaths, by(stateFips age sex year underlying)
 
+// square up
+	fillin stateFips age sex year underlying
+	replace deaths = 0 if _fillin
+
 // add on population
 	merge m:1 stateFips year sex age using "`proj_dir'/data/pop/clean/statePopulations.dta", nogen keep(match)
 	
@@ -68,7 +72,7 @@ Purpose:	find spatial correlation of top 10 causes
 			drop top10
 
 		// make causes wide
-			reshape wide deaths, i(stateFips sex age_group pop) j(underlying) string
+			reshape wide deaths, i(stateFips pop) j(underlying) string
 		
 		// loop through cause pairs
 			forvalues c1 = 1 / 10 {
@@ -83,7 +87,9 @@ Purpose:	find spatial correlation of top 10 causes
 					
 					// draw rates for each cause
 						generate r1 = rbinomial(pop, (deaths`r_`c1'' / pop)) / pop
+						replace r1 = 0 if deaths`r_`c1'' == 0 | deaths`r_`c1'' == .
 						generate r2 = rbinomial(pop, (deaths`r_`c2'' / pop)) / pop
+						replace r2 = 0 if deaths`r_`c2'' == 0 | deaths`r_`c2'' == .
 					
 					// find the correlation
 						correlate r1 r2
@@ -110,16 +116,24 @@ Purpose:	find spatial correlation of top 10 causes
 				local cs = subinstr("`r_`i''", "_", ".", .)
 				replace cause = "`cs'" in `i'
 				replace name = "`name_`r_`i'''" in `i'
-				generate corr_`i' = ""
+				generate corr_`i' = .
+				generate s`i' = ""
 				label variable corr_`i' "`cs'  `name_`r_`i'''"
 			}
 		
 		// fill in the correlations
 			forvalues c1 = 1 / 10 {
 				forvalues c2 = 1 / 10 {
-					if (`c1' > `c2') local val = string(round(mean_`c2'_`c1', .001)) + " [" + string(round(lo_`c2'_`c1', .001)) + ", " + string(round(hi_`c2'_`c1', .001)) + "]"
-					else local val = string(round(mean_`c1'_`c2', .001)) + " [" + string(round(lo_`c1'_`c2', .001)) + ", " + string(round(hi_`c1'_`c2', .001)) + "]"
-					replace corr_`c1' = "`val'" in `c2'
+					if (`c1' > `c2') {
+						local rho = mean_`c2'_`c1'
+						local star = cond(inrange(0, lo_`c2'_`c1', hi_`c2'_`c1'), "", "*")
+					}
+					else {
+						local rho = mean_`c1'_`c2'
+						local star = cond(inrange(0, lo_`c1'_`c2', hi_`c1'_`c2'), "", "*")
+					}
+					replace corr_`c1' = `rho' in `c2'
+					replace s`c1' = "`star'" in `c2'
 				}
 			}
 
