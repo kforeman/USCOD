@@ -1,0 +1,49 @@
+model {
+	# state effects
+		for (j in 1:num_states) {
+			# random intercept by state
+				state_intercept[j] ~ dnorm(mu_si, tau_si)
+			# random slope on year by state
+				state_slope[j] ~ dnorm(mu_ss, tau_ss)
+		}
+	
+	# cause effects
+		for (j in 1:num_causes) {
+			# random intercept by cause
+				cause_intercept[j] ~ dnorm(mu_ci, tau_ci)
+			# random slope on year by cause
+				cause_slope[j] ~ dnorm(mu_cs, tau_cs)
+		}
+
+	# data likelihood model
+		for (i in 1:num_obs) {
+			# exposure
+				exposure[i] <- log(pop[i])
+			# state-level effects
+				state_effects[i] <- state_intercept[state[i]] + state_slope[state[i]]*year[i]
+			# cause-level effects
+				cause_effects[i] <- cause_intercept[cause[i]] + cause_slope[cause[i]]*year[i]
+			# prediction
+				pred[i] <- exp(exposure[i] + state_effects[i] + cause_effects[i])
+			# poisson likelihood
+				dth[i] ~ dpois(pred[i])
+		}
+	
+	# hyperpriors
+		# state intercept
+			mu_si ~ dnorm (0.0, 1.0E-6)			# noninformative prior on mu
+			sigma_si ~ dunif (0, 1000)			# noninformative prior on sigma
+			tau_si <- pow(sigma_si, -2)			# tau = 1/sigma^2
+		# state slope
+			mu_ss ~ dnorm (0.0, 1.0E-6)			# noninformative prior on mu
+			sigma_ss ~ dunif (0, 1000)			# noninformative prior on sigma
+			tau_ss <- pow(sigma_ss, -2)			# tau = 1/sigma^2
+		# cause intercept
+			mu_ci ~ dnorm (0.0, 1.0E-6)			# noninformative prior on mu
+			sigma_ci ~ dunif (0, 1000)			# noninformative prior on sigma
+			tau_ci <- pow(sigma_ci, -2)			# tau = 1/sigma^2
+		# cause slope
+			mu_cs ~ dnorm (0.0, 1.0E-6)			# noninformative prior on mu
+			sigma_cs ~ dunif (0, 1000)			# noninformative prior on sigma
+			tau_cs <- pow(sigma_cs, -2)			# tau = 1/sigma^2
+}
