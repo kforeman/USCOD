@@ -39,3 +39,4 @@ Purpose:	prep the dataset necessary for the random effects model
 
 // save it
 	save "`proj_dir'/data/model inputs/state_random_effects_input.dta", replace
+	outsheet using "`proj_dir'/data/model inputs/state_random_effects_input.csv", comma replace
