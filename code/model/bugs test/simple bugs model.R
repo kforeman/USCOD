@@ -6,6 +6,7 @@
 	setwd(paste(proj_dir, '/code/model/bugs test/', sep=''))
 	library('R2WinBUGS')
 	library('foreign')
+	library('coda')
 
 # load in data
 	cod <- read.dta(paste(proj_dir, '/data/model inputs/state_random_effects_input.dta', sep=''))
@@ -34,14 +35,14 @@
 # get rid of places with 0 population (because taking the log of 0 crashes bugs, it seems)
 	cod <- cod[cod$pop > 0 & !is.na(cod$pop), ]
 
-# keep just a subset for debugging
-	cod <- cod[cod$cause <= 5 & cod$state <= 10, ]
+# center/standardize year
+	cod$year_std <- (cod$year - mean(cod$year)) / sd(cod$year)
 
 # setup data for bugs
 	num_obs <- dim(cod)[1]
 	dth <- cod$deaths
 	pop <- cod$pop
-	year <- cod$year
+	year <- cod$year_std
 	cause <- cod$cause
 	state <- cod$state
 	data <- list('num_obs', 'num_states', 'num_causes', 'dth', 'pop', 'year', 'cause', 'state')
@@ -70,8 +71,13 @@
 		)
 
 # run in openbugs
-	sim <- bugs('data.txt', inits, parameters, 'simple bugs model.bug', n.chains=1, n.iter=1000, program='openbugs')
+	sim <- bugs(data, inits, parameters, 'simple bugs model.bug', n.chains=1, n.iter=1000, program='openbugs', codaPkg=TRUE)
 
 # display the results
 	print(sim)
 	plot(sim)
+
+# load into coda
+	coda_sims <- read.bugs(sim)
+	plot(coda_sims)
+
