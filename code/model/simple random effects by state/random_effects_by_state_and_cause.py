@@ -180,13 +180,12 @@ for s in model.stochastics:
 #mc.MAP(model_vars).fit(method='fmin_powell', verbose=1)
 #mc.MAP(model_vars).fit(verbose=1, iterlim=1e3, method='fmin_powell')
 
+# draw randomly from the prior to set starting values
+model.draw_from_prior()
+
 # draw some samples
-#model.sample(iter=20000, burn=10000, thin=10, verbose=1)
-model.sample(iter=50000, burn=40000, thin=10, verbose=1)
-
-
-
-
+#model.sample(10)
+model.sample(iter=200000, burn=100000, thin=100, verbose=1)
 
 
 # percentile functions
@@ -247,8 +246,48 @@ output =            pl.rec_append_fields(  rec =   data,
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
 pl.rec2csv(output, proj_dir + 'outputs/model results/simple random effects by state/pymc_results.csv')
-'''
 
+
+
+### plot diagnostics
+# setup plotting
+#import matplotlib.pyplot as pp
+#pp.switch_backend('acc')
+plot_me = [mu_si, mu_ss, mu_ci, mu_cs, sigma_si, sigma_ss, sigma_ci, sigma_cs, state_intercepts, state_slopes, cause_intercepts, cause_slopes]
+
+# plot traces
+os.chdir(proj_dir + '/outputs/model results/simple random effects by state/mcmc plots/traces/')
+for p in plot_me:
+    mc.Matplot.plot(p, suffix='_trace')
+    if len(p.shape) == 0:
+        plt.close()
+    else:
+        for i in range(np.int(np.ceil(p.shape[0] / 4.))):
+            plt.close()
+
+# plot autocorrelation
+os.chdir(proj_dir + '/outputs/model results/simple random effects by state/mcmc plots/autocorrelation/')
+for p in plot_me:
+    mc.Matplot.autocorrelation(p, suffix='_autocorrelation')
+    if len(p.shape) == 0:
+        plt.close()
+    else:
+        for i in range(np.int(np.ceil(p.shape[0] / 4.))):
+            plt.close()
+
+# plot geweke
+os.chdir(proj_dir + '/outputs/model results/simple random effects by state/mcmc plots/geweke/')
+for p in plot_me:
+    scores = mc.geweke(p, intervals=20)
+    mc.Matplot.geweke_plot(scores, p.__name__, suffix='_geweke')
+    if len(p.shape) == 0:
+        plt.close()
+    else:
+        for i in range(np.int(np.ceil(p.shape[0] / 4.))):
+            plt.close()
+
+
+'''
 # plot predictions
 pp = PdfPages(proj_dir + 'outputs/model results/epi transition by state/predictions.pdf')
 for g in g_list:
@@ -271,4 +310,27 @@ for g in g_list:
     pp.savefig()
     plt.close()
 pp.close()
+'''
+
+
+
+
+'''
+# return mean, lower, upper for a parameter
+def find_param_stats(param):
+    m = param.trace().mean(axis=0)
+    l = percentile(param.trace(), 2.5, axis=0)
+    u = percentile(param.trace(), 97.5, axis=0)
+    return np.rec.fromarrays([m, l, u], names='mean_val,lower_val,upper_val')
+# return error in the format desired for 'errorbar' matplotlib plots
+def find_param_error(param):
+    s = find_param_stats(param)
+    return s.mean_val, np.array([s.mean_val - s.lower_val, s.upper_val - s.mean_val])
+
+
+### plot parameter values
+# plot state intercepts
+v, e = find_param_error(state_intercepts)
+plt.errorbar(v, range(len(v)), e, fmt='bo')
+
 '''
