@@ -58,7 +58,7 @@ cause_indices = np.array([data.underlying == c for c in cause_list])
 mu_si =     mc.Normal(
                 name =  'mu_si',
                 mu =    0.0, 
-                tau =   1.0e-6,
+                tau =   1.0e-4,
                 value = 0.0)
 sigma_si =  mc.Uniform(
                 name =  'sigma_si',
@@ -69,7 +69,7 @@ sigma_si =  mc.Uniform(
 mu_ss =     mc.Normal(
                 name =  'mu_ss',
                 mu =    0.0, 
-                tau =   1.0e-6,
+                tau =   1.0e-4,
                 value = 0.0)
 sigma_ss =  mc.Uniform(
                 name =  'sigma_ss',
@@ -80,7 +80,7 @@ sigma_ss =  mc.Uniform(
 mu_ci =     mc.Normal(
                 name =  'mu_ci',
                 mu =    0.0, 
-                tau =   1.0e-6,
+                tau =   1.0e-4,
                 value = 0.0)
 sigma_ci =  mc.Uniform(
                 name =  'sigma_ci',
@@ -91,7 +91,7 @@ sigma_ci =  mc.Uniform(
 mu_cs =     mc.Normal(
                 name =  'mu_cs',
                 mu =    0.0, 
-                tau =   1.0e-6,
+                tau =   1.0e-4,
                 value = 0.0)
 sigma_cs =  mc.Uniform(
                 name =  'sigma_cs',
@@ -179,9 +179,6 @@ for s in model.stochastics:
 # use MAP to find starting values
 #mc.MAP(model_vars).fit(method='fmin_powell', verbose=1)
 #mc.MAP(model_vars).fit(verbose=1, iterlim=1e3, method='fmin_powell')
-
-# draw randomly from the prior to set starting values
-model.draw_from_prior()
 
 # draw some samples
 #model.sample(10)
