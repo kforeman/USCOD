@@ -89,9 +89,6 @@ data =          pl.rec_append_fields(
 # make a list of years in the data
 years =         np.arange(np.min(data.year0), np.max(data.year0)+1, 1)
 
-# index the data by year
-year_indices =  np.array([data.year0 == y for y in years])
-
 
 
 ### make lists/indices by state
@@ -111,13 +108,20 @@ states =        np.arange(len(state_names))
 state_indices = np.array([data.state == s for s in states])
 
 # list of state/year pairs
-state_years =   dict([(sy, i) for i, sy in enumerate([(s, y) for s in states for y in years])])
+state_years =   [(s, y) for s in states for y in years]
 
-# indices of state/year pairs
-state_year_indices =    np.array([year_indices[years[y]] & state_indices[states[s]] for s, y in state_years])
+# make state-year variable
+data =          pl.rec_append_fields(
+                    rec =   data, 
+                    names = 'state_year', 
+                    arrs =  np.array([i * (data.state == sy[0]) * (data.year0 == sy[1]) for i, sy in enumerate(state_years)]).sum(axis=0)
+                )
 
 # product of state and year (summing matrix for drift)
 year_by_state =         state_indices * data.year0
+
+# cumulative summing matrix by state (for random walk)
+state_cumsum =          np.array([(y <= data.year0) & (state_indices[s]) for s, y in state_years])
 
 
 
@@ -138,13 +142,20 @@ causes =        np.arange(len(cause_names))
 cause_indices = np.array([data.cause == c for c in causes])
 
 # list of cause/year pairs
-cause_years =   dict([(cy, i) for i, cy in enumerate([(c, y) for c in causes for y in years])])
+cause_years =   [(c, y) for c in causes for y in years]
 
-# indices of cause/year pairs
-cause_year_indices =    np.array([year_indices[years[y]] & cause_indices[causes[c]] for c, y in cause_years])
+# make cause-year variable
+data =          pl.rec_append_fields(
+                    rec =   data, 
+                    names = 'cause_year', 
+                    arrs =  np.array([i * (data.cause == cy[0]) * (data.year0 == cy[1]) for i, cy in enumerate(cause_years)]).sum(axis=0)
+                )
 
 # product of cause and year (summing matrix for drift)
 year_by_cause =         cause_indices * data.year0
+
+# cumulative summing matrix by cause (for random walk)
+cause_cumsum =          np.array([(y <= data.year0) & (cause_indices[c]) for c, y in cause_years])
 
 # map cause year to cause (because we have separate hyperpriors on u[c,t] by c)
 cause_year_map =        np.array([[cy[0] == c for c in causes] for cy in cause_years])
@@ -250,7 +261,7 @@ u_s =       mc.Normal(
 u_c =       mc.Normal(
                 name =  'u_c',
                 mu =    0.0,
-                tau =   np.dot(sigma_u_c, cause_year_map)**-2,
+                tau =   np.dot(cause_year_map, sigma_u_c**-2),
                 value = np.zeros(len(cause_years)))
 
 # d[s]
@@ -270,20 +281,35 @@ d_c =       mc.Normal(
 
                     
 ### prediction
-# interpolated state splines
+# random intercept by state
 @mc.deterministic
-def state_interpolated(state_splines=state_splines, state_year_indices=state_year_indices, state_syear_list=state_syear_list):
-    map(spline_interpolation, state_syear_list)
+def intercept_s(B0_s=B0_s, state_indices=state_indices):
+    return np.dot(B0_s, state_indices)
 
-# total of state-level effects
+# random intercept by cause
 @mc.deterministic
-def state_effects(state_intercepts=state_intercepts, state_slopes=state_slopes, state_indices=state_indices, data=data):
-    return np.dot(state_intercepts, state_indices) + (np.dot(state_slopes, state_indices) * data.year_std)
+def intercept_c(B0_c=B0_c, cause_indices=cause_indices):
+    return np.dot(B0_c, cause_indices)
 
-# total of cause-level effects
+# cumulative effect of state drift
 @mc.deterministic
-def cause_effects(cause_intercepts=cause_intercepts, cause_slopes=cause_slopes, cause_indices=cause_indices, data=data):
-    return np.dot(cause_intercepts, cause_indices) + (np.dot(cause_slopes, cause_indices) * data.year_std)
+def drift_s(d_s=d_s, year_by_state=year_by_state):
+    return np.dot(d_s, year_by_state)
+
+# cumulative effect of cause drift
+@mc.deterministic
+def drift_c(d_c=d_c, year_by_cause=year_by_cause):
+    return np.dot(d_c, year_by_cause)
+
+# cumulative sum of state random walk
+@mc.deterministic
+def rw_s(u_s=u_s, state_cumsum=state_cumsum):
+    return np.dot(u_s, state_cumsum)
+
+# cumulative sum of cause random walk
+@mc.deterministic
+def rw_c(u_c=u_c, cause_cumsum=cause_cumsum):
+    return np.dot(u_c, cause_cumsum)
 
 # exposure (population)
 @mc.deterministic
@@ -291,10 +317,10 @@ def exposure(data=data):
     return np.log(data.pop)
 
 # final prediction
+# y[s,c,t=n]  ~ exp(B0[s] + B0[c] + alpha + sum(u[s,t=0:n]) + sum(u[c,t=0:n]) + n*d[s] + n*d[c] + exposure)
 @mc.deterministic
-def estimate(state_effects=state_effects, cause_effects=cause_effects, exposure=exposure):
-    # return np.round(np.exp(exposure + state_effects + cause_effects))
-    return np.exp(exposure + state_effects + cause_effects)
+def estimate(intercept_s=intercept_s, intercept_c=intercept_c, alpha=alpha, drift_s=drift_s, drift_c=drift_c, rw_s=rw_s, rw_c=rw_c, exposure=exposure):
+    return np.exp(intercept_s + intercept_c + alpha + drift_s + drift_c + rw_s + rw_c + exposure)
 
 # poisson likelihood
 @mc.observed
@@ -305,11 +331,13 @@ def data_likelihood(value=data.deaths, mu=estimate):
     
 ### setup MCMC
 # compile variables into a model
-model_vars =    [[mu_si, mu_ss, mu_ci, mu_cs, sigma_si, sigma_ss, sigma_ci, sigma_cs],
-                [state_intercepts, state_slopes],
-                [cause_intercepts, cause_slopes],
-                [state_effects, cause_effects, exposure, estimate, data_likelihood]]
+model_vars =    [[mu_b_s, sigma_b_s, mu_b_c, sigma_b_c, sigma_u_s, sigma_u_c, mu_d_s, sigma_d_s, mu_d_c, sigma_d_c],
+                [B0_s, B0_c, alpha, u_s, u_c, d_s, d_c],
+                [intercept_s, intercept_c, drift_s, drift_c, rw_s, rw_c, exposure, estimate],
+                [data_likelihood]]
 model =         mc.MCMC(model_vars, db='ram')
+
+
 
 # set step method to adaptive metropolis
 for s in model.stochastics:
@@ -322,10 +350,10 @@ for s in model.stochastics:
 #mc.MAP(model_vars).fit(verbose=1, iterlim=1e3, method='fmin_powell')
 
 # draw some samples
-#model.sample(10)
-model.sample(iter=200000, burn=100000, thin=100, verbose=1)
+model.sample(10)
+#model.sample(iter=200000, burn=100000, thin=100, verbose=1)
 
-
+'''
 # percentile functions
 def percentile(a, q, axis=None, out=None, overwrite_input=False):
     a = np.asarray(a)
@@ -423,7 +451,7 @@ for p in plot_me:
     else:
         for i in range(np.int(np.ceil(p.shape[0] / 4.))):
             plt.close()
-
+'''
 
 '''
 # plot predictions
