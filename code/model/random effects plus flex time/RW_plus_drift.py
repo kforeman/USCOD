@@ -345,15 +345,15 @@ for s in model.stochastics:
 
     
 ### fit the model
-# use MAP to find starting values
-#mc.MAP(model_vars).fit(method='fmin_powell', verbose=1)
-#mc.MAP(model_vars).fit(verbose=1, iterlim=1e3, method='fmin_powell')
+# use MAP iteratively on alpha, then betas, then drifts, to find reasonable starting values for the chains
+mc.MAP([alpha, data_likelihood]).fit(method='fmin_powell', verbose=1)
+mc.MAP([B0_s, B0_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
+mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 
 # draw some samples
-model.sample(10)
-#model.sample(iter=200000, burn=100000, thin=100, verbose=1)
+model.sample(iter=80000, burn=40000, thin=40, verbose=1)
 
-'''
+
 # percentile functions
 def percentile(a, q, axis=None, out=None, overwrite_input=False):
     a = np.asarray(a)
@@ -411,10 +411,10 @@ upper_estimate =    percentile(model_estimates, 97.5, axis=0)
 output =            pl.rec_append_fields(  rec =   data, 
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
-pl.rec2csv(output, proj_dir + 'outputs/model results/simple random effects by state/pymc_results.csv')
+pl.rec2csv(output, proj_dir + 'outputs/model results/random effects plus flex time/pymc_results.csv')
 
 
-
+'''
 ### plot diagnostics
 # setup plotting
 #import matplotlib.pyplot as pp
