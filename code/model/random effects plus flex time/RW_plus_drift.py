@@ -8,6 +8,14 @@ Purpose:	fit a random walk with drift model
 ### model specification
 '''
     deaths[s,c,t]   ~ Poisson(y[s,c,t])
+        
+        s   : state (plus DC)
+                0:50
+        c   : cause of death
+                0:23
+        t   : year
+                0:38 (1979:2007)
+
 
     y[s,c,t=n]  ~ exp(B0[s] + B0[c] + alpha + sum(u[s,t=0:n]) + sum(u[c,t=0:n]) + n*d[s] + n*d[c] + exposure)
         
@@ -26,6 +34,7 @@ Purpose:	fit a random walk with drift model
         d[c]    ~ N(mu_d_c, 1/sigma_d_c^2)
                     temporal drift by cause (ie random slope)
         exposure: ln(pop[s,c,t])
+
 
     hyperpriors
         
