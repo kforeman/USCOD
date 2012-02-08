@@ -9,49 +9,48 @@ Purpose:	fit a random walk with drift model
 '''
     deaths[s,c,t]   ~ Poisson(y[s,c,t])
 
-    y[s,c,t=n]  ~ exp(B0[s] + B0[c] + alpha + exposure + sum(u[s,t=0:n]) + sum(u[c,t=0:n]) + n*d[s] + n*d[c])
+    y[s,c,t=n]  ~ exp(B0[s] + B0[c] + alpha + sum(u[s,t=0:n]) + sum(u[c,t=0:n]) + n*d[s] + n*d[c] + exposure)
         
-        B0[s]   ~ N(mu_sb, tau_sb)
+        B0[s]   ~ N(mu_b_s, 1/sigma_b_s^2)
                     random intercept by state
-        B0[c]   ~ N(mu_cb, tau_cb)
+        B0[c]   ~ N(mu_b_c, 1/sigma_b_c^2)
                     random intercept by cause
-        alpha   ~ N(0, 1e-6)
+        alpha   ~ N(0, 1e-4)
                     roughly the average log mortality rate
-        exposure: ln(pop[s,c,t])
-        u[s,t]  ~ N(0, tau_su)
+        u[s,t]  ~ N(0, 1/sigma_u_s^2)
                     random walk in time by state
-        u[c,t]  ~ N(0, tau_cu[c])
+        u[c,t]  ~ N(0, 1/sigma_u_c[c]^2)
                     random walk in time by cause
-        d[s]    ~ N(mu_sd, tau_sd)
+        d[s]    ~ N(mu_d_s, 1/sigma_d_s^2)
                     temporal drift by state (ie random slope)
-        d[c]    ~ N(mu_cd, tau_cd)
+        d[c]    ~ N(mu_d_c, 1/sigma_d_c^2)
                     temporal drift by cause (ie random slope)
+        exposure: ln(pop[s,c,t])
 
     hyperpriors
         
         B0[s]   : random intercept by state
-            mu_sb   ~ N(0, 1e-4)
-            tau_sb  ~ U(0, 1e2)
+            mu_b_s      ~ N(0, 1e-4)
+            sigma_b_s   ~ U(0, 1e2)
         
         B0[c]   : random intercept by cause
-            mu_cb   ~ N(0, 1e-4)
-            tau_cb  ~ U(0, 1e2)
+            mu_b_c      ~ N(0, 1e-4)
+            sigma_b_c   ~ U(0, 1e2)
             
         u[s,t]  : random walk by state
-            tau_su  ~ U(0, 1e2)
+            sigma_u_s   ~ U(0, 1e2)
         
         u[c,t]  : random walk by cause
-            tau_cu[c]~U(0, 1e2)
-            # note: may want to put a distribution on tau_cu instead
+            sigma_u_c[c]~ U(0, 1e2)
+            # note: may want to put a distribution on sigma_cu instead
         
         d[s]    : temporal drift by state
-            mu_sd   ~ N(0, 1e-4)
-            tau_sd  ~ U(0, 1e2)
+            mu_d_s      ~ N(0, 1e-4)
+            sigma_d_s   ~ U(0, 1e2)
         
         d[c]    : temporal drift by cause
-            mu_cd   ~ N(0, 1e-4)
-            tau_cd  ~ U(0, 1e2)
-            
+            mu_d_c      ~ N(0, 1e-4)
+            sigma_d_c   ~ U(0, 1e2) 
 '''
 
 ### setup Python
@@ -97,10 +96,19 @@ year_indices =  np.array([data.year0 == y for y in years])
 
 ### make lists/indices by state
 # list of states
-states =        dict([(s, i) for i, s in enumerate(np.unique(data.statefips))])
+state_names =   np.unique(data.statefips)
+state_names.sort()
+
+# make states numeric/sequential in data
+data =          pl.rec_append_fields(
+                    rec =   data, 
+                    names = 'state', 
+                    arrs =  np.array([i * (data.statefips == s) for i, s in enumerate(state_names)]).sum(axis=0)
+                )
+states =        np.arange(len(state_names))
 
 # indices of observations for each state
-state_indices = np.array([data.statefips == s for s in states])
+state_indices = np.array([data.state == s for s in states])
 
 # list of state/year pairs
 state_years =   dict([(sy, i) for i, sy in enumerate([(s, y) for s in states for y in years])])
@@ -109,16 +117,25 @@ state_years =   dict([(sy, i) for i, sy in enumerate([(s, y) for s in states for
 state_year_indices =    np.array([year_indices[years[y]] & state_indices[states[s]] for s, y in state_years])
 
 # product of state and year (summing matrix for drift)
-state_times_year =      state_indices * data.year0
+year_by_state =         state_indices * data.year0
 
 
 
 ### make lists/indices by cause
 # list of causes
-causes =        dict([(c, i) for i, c in enumerate(np.unique(data.underlying))])
+cause_names =   np.unique(data.underlying)
+cause_names.sort()
+
+# make causes numeric/sequential in data
+data =          pl.rec_append_fields(
+                    rec =   data, 
+                    names = 'cause', 
+                    arrs =  np.array([i * (data.underlying == c) for i, c in enumerate(cause_names)]).sum(axis=0)
+                )
+causes =        np.arange(len(cause_names))
 
 # indices of observations for each cause
-cause_indices = np.array([data.underlying == c for c in causes])
+cause_indices = np.array([data.cause == c for c in causes])
 
 # list of cause/year pairs
 cause_years =   dict([(cy, i) for i, cy in enumerate([(c, y) for c in causes for y in years])])
@@ -127,113 +144,128 @@ cause_years =   dict([(cy, i) for i, cy in enumerate([(c, y) for c in causes for
 cause_year_indices =    np.array([year_indices[years[y]] & cause_indices[causes[c]] for c, y in cause_years])
 
 # product of cause and year (summing matrix for drift)
-cause_times_year =      cause_indices * data.year0
+year_by_cause =         cause_indices * data.year0
+
+# map cause year to cause (because we have separate hyperpriors on u[c,t] by c)
+cause_year_map =        np.array([[cy[0] == c for c in causes] for cy in cause_years])
 
 
 
 ### hyperpriors
 # non-informative priors on both mu and sigma for each set of random effects
-# state intercept
-mu_si =     mc.Normal(
-                name =  'mu_si',
+# B0[s]
+mu_b_s =    mc.Normal(
+                name =  'mu_b_s',
                 mu =    0.0, 
                 tau =   1.0e-4,
                 value = 0.0)
-sigma_si =  mc.Uniform(
-                name =  'sigma_si',
-                lower = 0.0,
-                upper = 1.0e2,
-                value = 1.0)
-# state slope
-mu_ss =     mc.Normal(
-                name =  'mu_ss',
-                mu =    0.0, 
-                tau =   1.0e-4,
-                value = 0.0)
-sigma_ss =  mc.Uniform(
-                name =  'sigma_ss',
-                lower = 0.0,
-                upper = 1.0e2,
-                value = 1.0)
-# state spline
-sigma_sp =  mc.Uniform(
-                name =  'sigma_sp',
-                lower = 0.0,
-                upper = 1.0e2,
-                value = 1.0)
-# cause intercept
-mu_ci =     mc.Normal(
-                name =  'mu_ci',
-                mu =    0.0, 
-                tau =   1.0e-4,
-                value = 0.0)
-sigma_ci =  mc.Uniform(
-                name =  'sigma_ci',
-                lower = 0.0,
-                upper = 1.0e2,
-                value = 1.0)
-# cause slope
-mu_cs =     mc.Normal(
-                name =  'mu_cs',
-                mu =    0.0, 
-                tau =   1.0e-4,
-                value = 0.0)
-sigma_cs =  mc.Uniform(
-                name =  'sigma_cs',
-                lower = 0.0,
-                upper = 1.0e2,
-                value = 1.0)
-# cause spline
-sigma_cp =  mc.Uniform(
-                name =  'sigma_cp',
+sigma_b_s = mc.Uniform(
+                name =  'sigma_b_s',
                 lower = 0.0,
                 upper = 1.0e2,
                 value = 1.0)
 
+# B0[c]
+mu_b_c =    mc.Normal(
+                name =  'mu_b_c',
+                mu =    0.0, 
+                tau =   1.0e-4,
+                value = 0.0)
+sigma_b_c = mc.Uniform(
+                name =  'sigma_b_c',
+                lower = 0.0,
+                upper = 1.0e2,
+                value = 1.0)
+
+# u[s,t]
+sigma_u_s = mc.Uniform(
+                name =  'sigma_u_s',
+                lower = 0.0,
+                upper = 1.0e2,
+                value = 1.0)
+
+# u[c,t]
+sigma_u_c = mc.Uniform(
+                name =  'sigma_u_c',
+                lower = 0.0,
+                upper = 1.0e2,
+                value = np.ones(len(causes)))
+
+# d[s]
+mu_d_s =    mc.Normal(
+                name =  'mu_d_s',
+                mu =    0.0, 
+                tau =   1.0e-4,
+                value = 0.0)
+sigma_d_s =  mc.Uniform(
+                name =  'sigma_d_s',
+                lower = 0.0,
+                upper = 1.0e2,
+                value = 1.0)
+
+# d[c]
+mu_d_c =    mc.Normal(
+                name =  'mu_d_c',
+                mu =    0.0, 
+                tau =   1.0e-4,
+                value = 0.0)
+sigma_d_c = mc.Uniform(
+                name =  'sigma_d_c',
+                lower = 0.0,
+                upper = 1.0e2,
+                value = 1.0)
+
+
+
+### model parameters
+# B0[s]
+B0_s =      mc.Normal(
+                name = 'B0_s',
+                mu =    mu_b_s,
+                tau =   sigma_b_s**-2,
+                value = np.zeros(len(states)))
+
+# B0[c]
+B0_c =      mc.Normal(
+                name = 'B0_c',
+                mu =    mu_b_c,
+                tau =   sigma_b_c**-2,
+                value = np.zeros(len(causes)))
                 
-### random effects
-# state intercepts
-state_intercepts =  mc.Normal(
-                        name = 'state_intercepts',
-                        mu =    mu_si,
-                        tau =   1.0 / sigma_si**2,
-                        value = np.zeros(len(state_list))
-                    )
-# state slopes
-state_slopes =      mc.Normal(
-                        name = 'state_slopes',
-                        mu =    mu_ss,
-                        tau =   1.0 / sigma_ss**2,
-                        value = np.zeros(len(state_list))
-                    )
-# state splines
-state_splines =     mc.Normal(
-                        name = 'state_splines',
-                        mu =    0.,
-                        tau =   1.0 / sigma_sp**2,
-                        value = np.zeros(len(state_syear_list))
-                    )
-# cause intercepts
-cause_intercepts =  mc.Normal(
-                        name = 'cause_intercepts',
-                        mu =    mu_ci,
-                        tau =   1.0 / sigma_ci**2,
-                        value = np.zeros(len(cause_list))
-                    )
-# cause slopes
-cause_slopes =      mc.Normal(
-                        name = 'cause_slopes',
-                        mu =    mu_cs,
-                        tau =   1.0 / sigma_cs**2,
-                        value = np.zeros(len(cause_list))
-                    )
-# cause splines
-cause_splines =     mc.Normal(
-                        name = 'cause_splines',
-                        mu =    0.,
-                        tau =   1.0 / sigma_cp**2,
-                        value = np.zeros(len(cause_syear_list))
-                    )
+# alpha
+alpha =     mc.Normal(
+                name = 'alpha',
+                mu =    0.0,
+                tau =   1.0e-4,
+                value = 0.0)
+
+# u[s,t]
+u_s =       mc.Normal(
+                name =  'u_s',
+                mu =    0.0,
+                tau =   sigma_u_s**-2,
+                value = np.zeros(len(state_years)))
+
+# u[c,t]
+u_c =       mc.Normal(
+                name =  'u_c',
+                mu =    0.0,
+                tau =   np.dot(sigma_u_c, cause_year_map)**-2,
+                value = np.zeros(len(cause_years)))
+
+# d[s]
+d_s =       mc.Normal(
+                name =  'd_s',
+                mu =    mu_d_s,
+                tau =   sigma_d_s**-2,
+                value = np.zeros(len(states)))
+
+# d[c]
+d_c =       mc.Normal(
+                name =  'd_c',
+                mu =    mu_d_c,
+                tau =   sigma_d_c**-2,
+                value = np.zeros(len(causes)))
 
 
                     
