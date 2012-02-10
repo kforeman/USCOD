@@ -292,37 +292,37 @@ d_c =       mc.Normal(
 ### prediction
 # random intercept by state
 @mc.deterministic
-def intercept_s(B0_s=B0_s, state_indices=state_indices):
+def intercept_s(B0_s=B0_s):
     return np.dot(B0_s, state_indices)
 
 # random intercept by cause
 @mc.deterministic
-def intercept_c(B0_c=B0_c, cause_indices=cause_indices):
+def intercept_c(B0_c=B0_c):
     return np.dot(B0_c, cause_indices)
 
 # cumulative effect of state drift
 @mc.deterministic
-def drift_s(d_s=d_s, year_by_state=year_by_state):
+def drift_s(d_s=d_s):
     return np.dot(d_s, year_by_state)
 
 # cumulative effect of cause drift
 @mc.deterministic
-def drift_c(d_c=d_c, year_by_cause=year_by_cause):
+def drift_c(d_c=d_c):
     return np.dot(d_c, year_by_cause)
 
 # cumulative sum of state random walk
 @mc.deterministic
-def rw_s(u_s=u_s, state_cumsum=state_cumsum):
+def rw_s(u_s=u_s):
     return np.dot(u_s, state_cumsum)
 
 # cumulative sum of cause random walk
 @mc.deterministic
-def rw_c(u_c=u_c, cause_cumsum=cause_cumsum):
+def rw_c(u_c=u_c):
     return np.dot(u_c, cause_cumsum)
 
 # exposure (population)
 @mc.deterministic
-def exposure(data=data):
+def exposure():
     return np.log(data.pop)
 
 # final prediction
@@ -351,6 +351,7 @@ model =         mc.MCMC(model_vars, db='ram')
 # set step method to adaptive metropolis
 for s in model.stochastics:
     model.use_step_method(mc.AdaptiveMetropolis, s, interval=100)
+    #model.use_step_method(mc.Metropolis, s)
 
     
 ### fit the model
@@ -360,7 +361,7 @@ mc.MAP([B0_s, B0_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 
 # draw some samples
-model.sample(iter=80000, burn=40000, thin=40, verbose=1)
+model.sample(iter=200000, burn=150000, thin=50, verbose=1)
 
 
 # percentile functions
