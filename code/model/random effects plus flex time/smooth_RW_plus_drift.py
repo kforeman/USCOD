@@ -124,6 +124,15 @@ state_indices = np.array([data.state == s for s in states])
 # list of state/year pairs
 state_years =   [(s, y) for s in states for y in years]
 state_syears =  [(s, y) for s in states for y in syears]
+
+# list of all RW indices for a state
+years_by_state =   []
+i = 0
+for s in states:
+    years_by_state.append([])
+    for y in years:
+        years_by_state[s].append(i)
+        i += 1
 syears_by_state =   []
 i = 0
 for s in states:
@@ -166,6 +175,15 @@ cause_indices = np.array([data.cause == c for c in causes])
 # list of cause/year pairs
 cause_years =   [(c, y) for c in causes for y in years]
 cause_syears =  [(c, y) for c in causes for y in syears]
+
+# list of all RW indices for a cause
+years_by_cause =   []
+i = 0
+for c in causes:
+    years_by_cause.append([])
+    for y in years:
+        years_by_cause[c].append(i)
+        i += 1
 syears_by_cause =   []
 i = 0
 for c in causes:
@@ -291,7 +309,7 @@ u_s =       mc.Normal(
 u_c =       mc.Normal(
                 name =  'u_c',
                 mu =    0.0,
-                tau =   np.dot(cause_syear_map, sigma_u_c**-2),
+                tau =   np.dot(cause_syear_map, sigma_u_c**-2).astype('float'),
                 value = np.zeros(len(cause_syears)))
 
 # d[s]
@@ -313,45 +331,45 @@ d_c =       mc.Normal(
 ### prediction
 # random intercept by state
 @mc.deterministic
-def intercept_s(B0_s=B0_s, state_indices=state_indices):
+def intercept_s(B0_s=B0_s):
     return np.dot(B0_s, state_indices)
 
 # random intercept by cause
 @mc.deterministic
-def intercept_c(B0_c=B0_c, cause_indices=cause_indices):
+def intercept_c(B0_c=B0_c):
     return np.dot(B0_c, cause_indices)
 
 # cumulative effect of state drift
 @mc.deterministic
-def drift_s(d_s=d_s, year_by_state=year_by_state):
+def drift_s(d_s=d_s):
     return np.dot(d_s, year_by_state)
 
 # cumulative effect of cause drift
 @mc.deterministic
-def drift_c(d_c=d_c, year_by_cause=year_by_cause):
+def drift_c(d_c=d_c):
     return np.dot(d_c, year_by_cause)
 
 # random walk interpolators
-def interpolate_state_rw(state, vals=u_s, years=years, syears=syears, syears_by_state=syears_by_state):
+def interpolate_state_rw(state, u_s=u_s):
     return splev(years, splrep(syears, u_s[syears_by_state[state]]))
-def interpolate_cause_rw(cause, vals=u_s, years=years, syears=syears, syears_by_cause=syears_by_cause):
+def interpolate_cause_rw(cause, vals=u_s):
     return splev(years, splrep(syears, u_s[syears_by_cause[cause]]))
 
 # cumulative sum of state random walk
 @mc.deterministic
-def rw_s(u_s=u_s, state_cumsum=state_cumsum, states=states):
+def rw_s():
     u_s_interp = np.array(map(interpolate_state_rw, states)).flatten()
     return np.dot(u_s_interp, state_cumsum)
 
 # cumulative sum of cause random walk
 @mc.deterministic
-def rw_c(u_c=u_c, cause_cumsum=cause_cumsum, causes=causes):
+def rw_c():
     u_c_interp = np.array(map(interpolate_cause_rw, causes)).flatten()
     return np.dot(u_c_interp, cause_cumsum)
 
 # exposure (population)
 @mc.deterministic
-def exposure(data=data):
+def exposure():
     return np.log(data.pop)
 
 # final prediction
@@ -390,10 +408,11 @@ mc.MAP([B0_s, B0_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 
 # draw some samples
-model.sample(iter=10000, burn=5000, thin=5, verbose=1)
+#model.sample(iter=10000, burn=5000, thin=5, verbose=True)
 #model.sample(100)
+%timeit model.sample(1000)
 
-
+'''
 # percentile functions
 def percentile(a, q, axis=None, out=None, overwrite_input=False):
     a = np.asarray(a)
@@ -451,8 +470,8 @@ upper_estimate =    percentile(model_estimates, 97.5, axis=0)
 output =            pl.rec_append_fields(  rec =   data, 
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
-pl.rec2csv(output, proj_dir + 'outputs/model results/random effects plus flex time/pymc_results.csv')
-
+pl.rec2csv(output, proj_dir + 'outputs/model results/random effects plus flex time/smooth_rw_results.csv')
+'''
 
 '''
 ### plot diagnostics
