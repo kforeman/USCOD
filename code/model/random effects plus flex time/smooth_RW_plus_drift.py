@@ -126,13 +126,6 @@ state_years =   [(s, y) for s in states for y in years]
 state_syears =  [(s, y) for s in states for y in syears]
 
 # list of all RW indices for a state
-years_by_state =   []
-i = 0
-for s in states:
-    years_by_state.append([])
-    for y in years:
-        years_by_state[s].append(i)
-        i += 1
 syears_by_state =   []
 i = 0
 for s in states:
@@ -177,13 +170,6 @@ cause_years =   [(c, y) for c in causes for y in years]
 cause_syears =  [(c, y) for c in causes for y in syears]
 
 # list of all RW indices for a cause
-years_by_cause =   []
-i = 0
-for c in causes:
-    years_by_cause.append([])
-    for y in years:
-        years_by_cause[c].append(i)
-        i += 1
 syears_by_cause =   []
 i = 0
 for c in causes:
@@ -380,8 +366,8 @@ def estimate(intercept_s=intercept_s, intercept_c=intercept_c, alpha=alpha, drif
 
 # poisson likelihood
 @mc.observed
-def data_likelihood(value=data.deaths, mu=estimate):
-    return mc.poisson_like(value, mu)
+def data_likelihood(value=data.deaths, estimate=estimate):
+    return mc.poisson_like(value, estimate)
 
 
     
@@ -408,11 +394,10 @@ mc.MAP([B0_s, B0_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 
 # draw some samples
-#model.sample(iter=10000, burn=5000, thin=5, verbose=True)
+model.sample(iter=100000, burn=50000, thin=50, verbose=True)
 #model.sample(100)
-%timeit model.sample(1000)
 
-'''
+
 # percentile functions
 def percentile(a, q, axis=None, out=None, overwrite_input=False):
     a = np.asarray(a)
@@ -471,7 +456,7 @@ output =            pl.rec_append_fields(  rec =   data,
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
 pl.rec2csv(output, proj_dir + 'outputs/model results/random effects plus flex time/smooth_rw_results.csv')
-'''
+
 
 '''
 ### plot diagnostics
