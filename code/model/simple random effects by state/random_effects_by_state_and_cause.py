@@ -136,17 +136,17 @@ cause_slopes =      mc.Normal(
 ### prediction
 # total of state-level effects
 @mc.deterministic
-def state_effects(state_intercepts=state_intercepts, state_slopes=state_slopes, state_indices=state_indices, data=data):
+def state_effects(state_intercepts=state_intercepts, state_slopes=state_slopes):
     return np.dot(state_intercepts, state_indices) + (np.dot(state_slopes, state_indices) * data.year_std)
 
 # total of cause-level effects
 @mc.deterministic
-def cause_effects(cause_intercepts=cause_intercepts, cause_slopes=cause_slopes, cause_indices=cause_indices, data=data):
+def cause_effects(cause_intercepts=cause_intercepts, cause_slopes=cause_slopes):
     return np.dot(cause_intercepts, cause_indices) + (np.dot(cause_slopes, cause_indices) * data.year_std)
 
 # exposure (population)
 @mc.deterministic
-def exposure(data=data):
+def exposure():
     return np.log(data.pop)
 
 # final prediction
