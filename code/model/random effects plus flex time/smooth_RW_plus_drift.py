@@ -99,6 +99,9 @@ data =          pl.rec_append_fields(
 # make a list of years in the data
 years =         np.arange(np.min(data.year0), np.max(data.year0)+1, 1)
 
+# find indices of years
+year_indices =  np.array([data.year0 == y for y in years])
+
 # make a list of which years to sample the random walks at
 knot_spacing =  4
 syears =        np.arange(np.min(data.year0), np.max(data.year0)+knot_spacing, knot_spacing)
@@ -145,8 +148,8 @@ data =          pl.rec_append_fields(
 year_by_state =         state_indices * data.year0
 
 # cumulative summing matrix by state (for random walk)
-state_cumsum =          np.array([(y <= data.year0) & (state_indices[s]) for s, y in state_years])
-
+#state_cumsum =          np.array([(y <= data.year0) & (state_indices[s]) for s, y in state_years])
+state_year_indices =    np.array([state_indices[s] & year_indices[y] for s, y in state_years])
 
 
 ### make lists/indices by cause
@@ -189,7 +192,9 @@ data =          pl.rec_append_fields(
 year_by_cause =         cause_indices * data.year0
 
 # cumulative summing matrix by cause (for random walk)
-cause_cumsum =          np.array([(y <= data.year0) & (cause_indices[c]) for c, y in cause_years])
+#cause_cumsum =          np.array([(y <= data.year0) & (cause_indices[c]) for c, y in cause_years])
+cause_year_indices =    np.array([cause_indices[c] & year_indices[y] for c, y in cause_years])
+
 
 # map cause year to cause (because we have separate hyperpriors on u[c,t] by c)
 cause_syear_map =       np.array([[cy[0] == c for c in causes] for cy in cause_syears])
@@ -337,21 +342,21 @@ def drift_c(d_c=d_c):
 
 # random walk interpolators
 def interpolate_state_rw(state, u_s=u_s):
-    return splev(years, splrep(syears, u_s[syears_by_state[state]]))
-def interpolate_cause_rw(cause, vals=u_s):
-    return splev(years, splrep(syears, u_s[syears_by_cause[cause]]))
+    return splev(years, splrep(syears, np.cumsum(u_s[syears_by_state[state]])))
+def interpolate_cause_rw(cause, u_c=u_c):
+    return splev(years, splrep(syears, np.cumsum(u_c[syears_by_cause[cause]])))
 
 # cumulative sum of state random walk
 @mc.deterministic
 def rw_s():
     u_s_interp = np.array(map(interpolate_state_rw, states)).flatten()
-    return np.dot(u_s_interp, state_cumsum)
+    return np.dot(u_s_interp, state_year_indices)
 
 # cumulative sum of cause random walk
 @mc.deterministic
 def rw_c():
     u_c_interp = np.array(map(interpolate_cause_rw, causes)).flatten()
-    return np.dot(u_c_interp, cause_cumsum)
+    return np.dot(u_c_interp, cause_year_indices)
 
 # exposure (population)
 @mc.deterministic
