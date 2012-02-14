@@ -79,6 +79,7 @@ proj_dir =  'D:/Projects/' + project +'/' if (os.environ['OS'] == 'Windows_NT') 
 ### setup the data
 # load in the csv
 data =      pl.csv2rec(proj_dir + 'data/model inputs/state_random_effects_input.csv')
+print 'Data loaded'
 
 # keep just males aged 60-74 for now
 data =      data[(data.sex == 1) & (data.age_group == '60to74')]
@@ -106,7 +107,13 @@ year_indices =  np.array([data.year0 == y for y in years])
 knot_spacing =  4
 syears =        np.arange(np.min(data.year0), np.max(data.year0)+knot_spacing, knot_spacing)
 
-
+# make a diagonal matrix for computing the cumulative sum of sample years
+syear_cumsum =  np.zeros((len(syears), len(syears)))
+for i in range(len(syears)):
+    for j in range(len(syears)):
+        if i >= j:
+            syear_cumsum[i,j] = 1
+print 'Finished year indices'
 
 ### make lists/indices by state
 # list of states
@@ -150,6 +157,8 @@ year_by_state =         state_indices * data.year0
 # cumulative summing matrix by state (for random walk)
 #state_cumsum =          np.array([(y <= data.year0) & (state_indices[s]) for s, y in state_years])
 state_year_indices =    np.array([state_indices[s] & year_indices[y] for s, y in state_years])
+print 'Finished state indices'
+
 
 
 ### make lists/indices by cause
@@ -198,6 +207,7 @@ cause_year_indices =    np.array([cause_indices[c] & year_indices[y] for c, y in
 
 # map cause year to cause (because we have separate hyperpriors on u[c,t] by c)
 cause_syear_map =       np.array([[cy[0] == c for c in causes] for cy in cause_syears])
+print 'Finished cause indices'
 
 
 
@@ -264,6 +274,7 @@ sigma_d_c = mc.Uniform(
                 lower = 0.0,
                 upper = 1.0e2,
                 value = 1.0)
+print 'Created hyperpriors'
 
 
 
@@ -316,6 +327,7 @@ d_c =       mc.Normal(
                 mu =    mu_d_c,
                 tau =   sigma_d_c**-2,
                 value = np.zeros(len(causes)))
+print 'Created stochastic parameters'
 
 
                     
@@ -329,6 +341,7 @@ def intercept_s(B0_s=B0_s):
 @mc.deterministic
 def intercept_c(B0_c=B0_c):
     return np.dot(B0_c, cause_indices)
+print 'Created intercepts'
 
 # cumulative effect of state drift
 @mc.deterministic
@@ -339,40 +352,44 @@ def drift_s(d_s=d_s):
 @mc.deterministic
 def drift_c(d_c=d_c):
     return np.dot(d_c, year_by_cause)
+print 'Created drifts'
 
 # random walk interpolators
 def interpolate_state_rw(state, u_s=u_s):
-    return splev(years, splrep(syears, np.cumsum(u_s[syears_by_state[state]])))
+    return splev(years, splrep(syears, np.dot(syear_cumsum, u_s[syears_by_state[state]])))
 def interpolate_cause_rw(cause, u_c=u_c):
-    return splev(years, splrep(syears, np.cumsum(u_c[syears_by_cause[cause]])))
+    return splev(years, splrep(syears, np.dot(syear_cumsum, u_c[syears_by_cause[cause]])))
+print 'Defined interpolators'
 
 # cumulative sum of state random walk
 @mc.deterministic
 def rw_s():
-    u_s_interp = np.array(map(interpolate_state_rw, states)).flatten()
-    return np.dot(u_s_interp, state_year_indices)
+    #u_s_interp = np.array(map(interpolate_state_rw, states)).flatten()
+    return np.dot(np.array(map(interpolate_state_rw, states)).flatten(), state_year_indices)
 
 # cumulative sum of cause random walk
 @mc.deterministic
 def rw_c():
-    u_c_interp = np.array(map(interpolate_cause_rw, causes)).flatten()
-    return np.dot(u_c_interp, cause_year_indices)
+    #u_c_interp = np.array(map(interpolate_cause_rw, causes)).flatten()
+    return np.dot(np.array(map(interpolate_cause_rw, causes)).flatten(), cause_year_indices)
+print 'Created random walks'
 
 # exposure (population)
-@mc.deterministic
-def exposure():
-    return np.log(data.pop)
+exposure = np.log(data.pop)
+print 'Created exposure'
 
 # final prediction
 # y[s,c,t=n]  ~ exp(B0[s] + B0[c] + alpha + sum(u[s,t=0:n]) + sum(u[c,t=0:n]) + n*d[s] + n*d[c] + exposure)
 @mc.deterministic
-def estimate(intercept_s=intercept_s, intercept_c=intercept_c, alpha=alpha, drift_s=drift_s, drift_c=drift_c, rw_s=rw_s, rw_c=rw_c, exposure=exposure):
+def estimate(intercept_s=intercept_s, intercept_c=intercept_c, alpha=alpha, drift_s=drift_s, drift_c=drift_c, rw_s=rw_s, rw_c=rw_c):
     return np.exp(intercept_s + intercept_c + alpha + drift_s + drift_c + rw_s + rw_c + exposure)
+print 'Created estimate'
 
 # poisson likelihood
 @mc.observed
 def data_likelihood(value=data.deaths, estimate=estimate):
     return mc.poisson_like(value, estimate)
+print 'Created likelihood'
 
 
     
@@ -383,6 +400,7 @@ model_vars =    [[mu_b_s, sigma_b_s, mu_b_c, sigma_b_c, sigma_u_s, sigma_u_c, mu
                 [intercept_s, intercept_c, drift_s, drift_c, rw_s, rw_c, exposure, estimate],
                 [data_likelihood]]
 model =         mc.MCMC(model_vars, db='ram')
+print 'Compiled model'
 
 
 
@@ -390,19 +408,24 @@ model =         mc.MCMC(model_vars, db='ram')
 for s in model.stochastics:
     model.use_step_method(mc.AdaptiveMetropolis, s, interval=100)
     #model.use_step_method(mc.Metropolis, s)
+print 'Assigned step methods'
 
     
 ### fit the model
 # use MAP iteratively on alpha, then betas, then drifts, to find reasonable starting values for the chains
-#mc.MAP([alpha, data_likelihood]).fit(method='fmin_powell', verbose=1)
-#mc.MAP([B0_s, B0_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
-#mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
+mc.MAP([alpha, data_likelihood]).fit(method='fmin_powell', verbose=1)
+print 'Mapped alpha'
+mc.MAP([B0_s, B0_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
+print 'Mapped intercepts'
+mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
+print 'Mapped drifts'
 
 # draw some samples
+print 'Beginning sampling'
 model.sample(iter=200000, burn=50000, thin=150, verbose=True)
 #model.sample(100)
 
-
+'''
 # percentile functions
 def percentile(a, q, axis=None, out=None, overwrite_input=False):
     a = np.asarray(a)
@@ -461,7 +484,7 @@ output =            pl.rec_append_fields(  rec =   data,
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
 pl.rec2csv(output, proj_dir + 'outputs/model results/random effects plus flex time/smooth_rw_results.csv')
-
+'''
 
 '''
 ### plot diagnostics
