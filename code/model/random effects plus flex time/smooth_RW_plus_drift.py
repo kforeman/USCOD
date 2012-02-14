@@ -143,6 +143,13 @@ for s in states:
     for y in syears:
         syears_by_state[s].append(i)
         i += 1
+years_by_state =   []
+i = 0
+for s in states:
+    years_by_state.append([])
+    for y in years:
+        years_by_state[s].append(i)
+        i += 1
 
 # make state-year variable
 data =          pl.rec_append_fields(
@@ -188,6 +195,13 @@ for c in causes:
     syears_by_cause.append([])
     for y in syears:
         syears_by_cause[c].append(i)
+        i += 1
+years_by_cause =   []
+i = 0
+for c in causes:
+    years_by_cause.append([])
+    for y in years:
+        years_by_cause[c].append(i)
         i += 1
 
 # make cause-year variable
@@ -354,24 +368,21 @@ def drift_c(d_c=d_c):
     return np.dot(d_c, year_by_cause)
 print 'Created drifts'
 
-# random walk interpolators
-def interpolate_state_rw(state, u_s=u_s):
-    return splev(years, splrep(syears, np.dot(syear_cumsum, u_s[syears_by_state[state]])))
-def interpolate_cause_rw(cause, u_c=u_c):
-    return splev(years, splrep(syears, np.dot(syear_cumsum, u_c[syears_by_cause[cause]])))
-print 'Defined interpolators'
-
 # cumulative sum of state random walk
 @mc.deterministic
-def rw_s():
-    #u_s_interp = np.array(map(interpolate_state_rw, states)).flatten()
-    return np.dot(np.array(map(interpolate_state_rw, states)).flatten(), state_year_indices)
+def rw_s(u_s=u_s):
+    u_s_interp =    np.zeros(len(state_years))
+    for s in states:
+        u_s_interp[years_by_state[s]] = splev(years, splrep(syears, np.dot(syear_cumsum, u_s[syears_by_state[s]])))
+    return np.dot(u_s_interp, state_year_indices)
 
 # cumulative sum of cause random walk
 @mc.deterministic
-def rw_c():
-    #u_c_interp = np.array(map(interpolate_cause_rw, causes)).flatten()
-    return np.dot(np.array(map(interpolate_cause_rw, causes)).flatten(), cause_year_indices)
+def rw_c(u_c=u_c):
+    u_c_interp =    np.zeros(len(cause_years))
+    for c in causes:
+        u_c_interp[years_by_cause[c]] = splev(years, splrep(syears, np.dot(syear_cumsum, u_c[syears_by_cause[c]])))
+    return np.dot(u_c_interp, cause_year_indices)
 print 'Created random walks'
 
 # exposure (population)
@@ -410,7 +421,7 @@ for s in model.stochastics:
     #model.use_step_method(mc.Metropolis, s)
 print 'Assigned step methods'
 
-    
+
 ### fit the model
 # use MAP iteratively on alpha, then betas, then drifts, to find reasonable starting values for the chains
 mc.MAP([alpha, data_likelihood]).fit(method='fmin_powell', verbose=1)
