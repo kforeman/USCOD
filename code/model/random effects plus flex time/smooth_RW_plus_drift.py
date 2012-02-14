@@ -100,7 +100,7 @@ data =          pl.rec_append_fields(
 years =         np.arange(np.min(data.year0), np.max(data.year0)+1, 1)
 
 # make a list of which years to sample the random walks at
-knot_spacing =  5
+knot_spacing =  4
 syears =        np.arange(np.min(data.year0), np.max(data.year0)+knot_spacing, knot_spacing)
 
 
@@ -389,12 +389,12 @@ for s in model.stochastics:
     
 ### fit the model
 # use MAP iteratively on alpha, then betas, then drifts, to find reasonable starting values for the chains
-mc.MAP([alpha, data_likelihood]).fit(method='fmin_powell', verbose=1)
-mc.MAP([B0_s, B0_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
-mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
+#mc.MAP([alpha, data_likelihood]).fit(method='fmin_powell', verbose=1)
+#mc.MAP([B0_s, B0_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
+#mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 
 # draw some samples
-model.sample(iter=100000, burn=50000, thin=50, verbose=True)
+model.sample(iter=200000, burn=50000, thin=150, verbose=True)
 #model.sample(100)
 
 
