@@ -104,7 +104,7 @@ years =         np.arange(np.min(data.year0), np.max(data.year0)+1, 1)
 year_indices =  np.array([data.year0 == y for y in years])
 
 # make a list of which years to sample the random walks at
-knot_spacing =  4
+knot_spacing =  5
 syears =        np.arange(np.min(data.year0), np.max(data.year0)+knot_spacing, knot_spacing)
 
 # make a diagonal matrix for computing the cumulative sum of sample years
@@ -417,8 +417,8 @@ print 'Compiled model'
 
 # set step method to adaptive metropolis
 for s in model.stochastics:
-    model.use_step_method(mc.AdaptiveMetropolis, s, interval=100)
-    #model.use_step_method(mc.Metropolis, s)
+    #model.use_step_method(mc.AdaptiveMetropolis, s, interval=100)
+    model.use_step_method(mc.Metropolis, s)
 print 'Assigned step methods'
 
 
@@ -433,10 +433,11 @@ print 'Mapped drifts'
 
 # draw some samples
 print 'Beginning sampling'
-model.sample(iter=200000, burn=50000, thin=150, verbose=True)
+#model.sample(iter=200000, burn=50000, thin=150, verbose=True)
+model.sample(iter=50000, burn=20000, thin=30, verbose=True)
 #model.sample(100)
 
-'''
+
 # percentile functions
 def percentile(a, q, axis=None, out=None, overwrite_input=False):
     a = np.asarray(a)
@@ -495,7 +496,7 @@ output =            pl.rec_append_fields(  rec =   data,
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
 pl.rec2csv(output, proj_dir + 'outputs/model results/random effects plus flex time/smooth_rw_results.csv')
-'''
+
 
 '''
 ### plot diagnostics
