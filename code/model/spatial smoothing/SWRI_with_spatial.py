@@ -17,7 +17,7 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing
                 0:38 (1979:2007)
 
 
-    y[s,c,t=n]  ~ exp(alpha + gamma*n + exposure + B[s] + eta_Bs*avg(B[neighbors[s]]) + B[c] + B[s,c] + eta[c]*avg(B[neighbors[s],c]) + d[s]*n + d[c]*n + sum(u[s,t=0:n]) + sum(u[c,t=0:n]))
+    y[s,c,t=n]  ~ exp(alpha + gamma*n + exposure + (1-eta_Bs)*B[s] + eta_Bs*avg(B[neighbors[s]]) + B[c] + (1-eta_Bsc[c])*B[s,c] + eta_Bsc[c]*avg(B[neighbors[s],c]) + (1-eta_ds)*d[s]*n + eta_ds*avg(d[neighbors[s]]) + d[c]*n + sum(u[s,t=0:n]) + sum(u[c,t=0:n]))
         
         alpha   ~ N(0, 1e-4)
                     roughly the average log mortality rate
@@ -26,18 +26,18 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing
         exposure: ln(pop[s,c,t])
         B[s]    ~ N(0, 1/sigma_b_s^2)
                     random intercept by state
-        eta_Bs  ~ N(0, 1e-4)
-                    coefficient on averaged spatial random intercept
+        eta_Bs  ~ Beta(3, 1)
+                    smoothing coefficient on spatial random intercept
         B[c]    ~ N(0, 1/sigma_b_c^2)
                     random intercept by cause
         B[s,c]  ~ N(0, 1/sigma_b_sc^2)
                     random intercept by cause/state interaction
-        eta_Bsc[c] ~ N(0, 1e-4)
-                    coefficient on averaged spatial random intercept by cause
+        eta_Bsc[c] ~ Beta(3, 1)
+                    smoothing coefficient on spatial random intercept by cause
         d[s]    ~ N(0, 1/sigma_d_s^2)
                     temporal drift by state (ie random slope)
-        eta_ds  ~ N(0, 1e-4)
-                    coefficient on averaged spatial random slope
+        eta_ds  ~ Beta(3, 1)
+                    smoothing coefficient on spatial random slope
         d[c]    ~ N(0, 1/sigma_d_c^2)
                     temporal drift by cause (ie random slope)
         u[s,t]  ~ N(0, 1/sigma_u_s^2)
@@ -248,14 +248,24 @@ state_cause_indices =   np.array([state_indices[s] & cause_indices[c] for s, c i
 b, bname =          pysal.rook_from_shapefile(proj_dir + 'data/geo/raw/NOAA/s_01ja11.shp', 'Fips').full()
 
 # put the boundary matrix in the same order as USCOD has the states setup
-bordering_states =  np.zeros((len(states), len(states)))
+neighbor_states =  np.zeros((len(states), len(states)))
 for i1,s1 in enumerate(state_names):
     for i2,s2 in enumerate(state_names):
-        bordering_states[i1, i2] =  b[bname.index('%02d' % s1), bname.index('%02d' % s2)]
+        neighbor_states[i1, i2] =  b[bname.index('%02d' % s1), bname.index('%02d' % s2)]
 
 # instead of 1s, have weights (ie 1/(number of bordering states))
-bordering_states =  (bordering_states / np.sum(bordering_states, axis=0)).T
-bordering_states[np.isnan(bordering_states)] = 0.
+neighbor_states =  (neighbor_states / np.sum(neighbor_states, axis=0)).T
+neighbor_states[np.isnan(neighbor_states)] = 0.
+
+# neighbording state for smoothing the intercepts
+intercept_smoothing_matrix =    neighbor_states[data.state].T
+
+# smoothing matrix for drift
+drift_smoothing_matrix =        intercept_smoothing_matrix * data.year0
+
+# smoothing matrix for interactions
+interaction_smoothing_matrix =  np.array([intercept_smoothing_matrix[s] * cause_indices[c] for s, c in state_causes])
+print 'Finished spatial smoothing indices'
 
 
 
@@ -328,6 +338,14 @@ B_s =       mc.Normal(
                 tau =   sigma_b_s**-2,
                 value = np.zeros(len(states)))
 
+# eta_Bs
+eta_Bs =    mc.Beta(
+                name =  'eta_Bs',
+                alpha = 3.,
+                beta =  1.,
+                value = .75
+            )
+
 # B[c]
 B_c =       mc.Normal(
                 name = 'B_c',
@@ -341,6 +359,14 @@ B_sc =      mc.Normal(
                 mu =    0.,
                 tau =   sigma_b_sc**-2,
                 value = np.zeros(len(state_causes)))
+
+# eta_Bsc[c]
+eta_Bsc =   mc.Beta(
+                name =  'eta_Bsc',
+                alpha = 3.,
+                beta =  1.,
+                value = np.ones(len(causes)) * .75
+            )
                 
 # d[s]
 d_s =       mc.Normal(
@@ -348,6 +374,14 @@ d_s =       mc.Normal(
                 mu =    0.,
                 tau =   sigma_d_s**-2,
                 value = np.zeros(len(states)))
+
+# eta_ds
+eta_ds =    mc.Beta(
+                name =  'eta_ds',
+                alpha = 3.,
+                beta =  1.,
+                value = .75
+            )
 
 # d[c]
 d_c =       mc.Normal(
@@ -376,8 +410,8 @@ print 'Created stochastic parameters'
 ### prediction
 # random intercept by state
 @mc.deterministic
-def intercept_s(B_s=B_s):
-    return np.dot(B_s, state_indices)
+def intercept_s(B_s=B_s, eta_Bs=eta_Bs):
+    return ((1-eta_Bs) * np.dot(B_s, state_indices)) + (eta_Bs * np.dot(B_s, intercept_smoothing_matrix))
 
 # random intercept by cause
 @mc.deterministic
@@ -386,14 +420,14 @@ def intercept_c(B_c=B_c):
 
 # random intercept by state/cause interaction
 @mc.deterministic
-def intercept_sc(B_sc=B_sc):
-    return np.dot(B_sc, state_cause_indices)
+def intercept_sc(B_sc=B_sc, eta_Bsc=eta_Bsc):
+    return ((1-np.dot(eta_Bsc, cause_indices)) * np.dot(B_sc, state_cause_indices)) + (np.dot(eta_Bsc, cause_indices) * np.dot(B_sc, interaction_smoothing_matrix))
 print 'Created intercepts'
 
 # cumulative effect of state drift
 @mc.deterministic
-def drift_s(d_s=d_s):
-    return np.dot(d_s, year_by_state)
+def drift_s(d_s=d_s, eta_ds=eta_ds):
+    return ((1-eta_ds) * np.dot(d_s, year_by_state)) + (eta_ds * np.dot(d_s, drift_smoothing_matrix))
 
 # cumulative effect of cause drift
 @mc.deterministic
@@ -440,7 +474,7 @@ print 'Created likelihood'
 ### setup MCMC
 # compile variables into a model
 model_vars =    [[sigma_b_s, sigma_b_c, sigma_b_sc, sigma_u_s, sigma_u_c, sigma_d_s, sigma_d_c],
-                [B_s, B_c, B_sc, alpha, u_s, u_c, d_s, d_c],
+                [B_s, B_c, B_sc, alpha, u_s, u_c, d_s, d_c, eta_Bs, eta_Bsc, eta_ds],
                 [intercept_s, intercept_c, intercept_sc, drift_s, drift_c, rw_s, rw_c, exposure, estimate],
                 [data_likelihood]]
 model =         mc.MCMC(model_vars, db='ram')
