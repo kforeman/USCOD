@@ -19,11 +19,11 @@ Purpose:	fit smoothed RW model, adding on state/cause interactions
 
     y[s,c,t=n]  ~ exp(B0[s] + B0[c] + B0[s,c] + alpha + sum(u[s,t=0:n]) + sum(u[c,t=0:n]) + n*d[s] + n*d[c] + exposure)
         
-        B0[s]   ~ N(mu_b_s, 1/sigma_b_s^2)
+        B0[s]   ~ N(0, 1/sigma_b_s^2)
                     random intercept by state
-        B0[c]   ~ N(mu_b_c, 1/sigma_b_c^2)
+        B0[c]   ~ N(0, 1/sigma_b_c^2)
                     random intercept by cause
-        B0[s,c] ~ N(mu_b_sc, 1/sigma_b_sc^2)
+        B0[s,c] ~ N(0, 1/sigma_b_sc^2)
                     random intercept by cause/state interaction
         alpha   ~ N(0, 1e-4)
                     roughly the average log mortality rate
@@ -33,9 +33,9 @@ Purpose:	fit smoothed RW model, adding on state/cause interactions
         u[c,t]  ~ N(0, 1/sigma_u_c[c]^2)
                     random walk in time by cause
                     sampled at 5 years intervals then interpolated via cubic spline
-        d[s]    ~ N(mu_d_s, 1/sigma_d_s^2)
+        d[s]    ~ N(0, 1/sigma_d_s^2)
                     temporal drift by state (ie random slope)
-        d[c]    ~ N(mu_d_c, 1/sigma_d_c^2)
+        d[c]    ~ N(0, 1/sigma_d_c^2)
                     temporal drift by cause (ie random slope)
         exposure: ln(pop[s,c,t])
 
@@ -123,6 +123,8 @@ for i in range(len(syears)):
         if i >= j:
             syear_cumsum[i,j] = 1
 print 'Finished year indices'
+
+
 
 ### make lists/indices by state
 # list of states
@@ -248,13 +250,8 @@ state_cause_indices_sp =sparse.csr_matrix(state_cause_indices).T
 
 
 ### hyperpriors
-# non-informative priors on both mu and sigma for each set of random effects
+# non-informative priors on sigma for each set of random effects
 # B0[s]
-mu_b_s =    mc.Normal(
-                name =  'mu_b_s',
-                mu =    0.0, 
-                tau =   1.0e-4,
-                value = 0.0)
 sigma_b_s = mc.Uniform(
                 name =  'sigma_b_s',
                 lower = 0.0,
@@ -262,11 +259,6 @@ sigma_b_s = mc.Uniform(
                 value = 1.0)
 
 # B0[c]
-mu_b_c =    mc.Normal(
-                name =  'mu_b_c',
-                mu =    0.0, 
-                tau =   1.0e-4,
-                value = 0.0)
 sigma_b_c = mc.Uniform(
                 name =  'sigma_b_c',
                 lower = 0.0,
@@ -274,11 +266,6 @@ sigma_b_c = mc.Uniform(
                 value = 1.0)
 
 # B0[s,c]
-mu_b_sc =   mc.Normal(
-                name =  'mu_b_sc',
-                mu =    0.0, 
-                tau =   1.0e-4,
-                value = 0.0)
 sigma_b_sc =mc.Uniform(
                 name =  'sigma_b_sc',
                 lower = 0.0,
@@ -300,11 +287,6 @@ sigma_u_c = mc.Uniform(
                 value = np.ones(len(causes)))
 
 # d[s]
-mu_d_s =    mc.Normal(
-                name =  'mu_d_s',
-                mu =    0.0, 
-                tau =   1.0e-4,
-                value = 0.0)
 sigma_d_s =  mc.Uniform(
                 name =  'sigma_d_s',
                 lower = 0.0,
@@ -312,11 +294,6 @@ sigma_d_s =  mc.Uniform(
                 value = 1.0)
 
 # d[c]
-mu_d_c =    mc.Normal(
-                name =  'mu_d_c',
-                mu =    0.0, 
-                tau =   1.0e-4,
-                value = 0.0)
 sigma_d_c = mc.Uniform(
                 name =  'sigma_d_c',
                 lower = 0.0,
@@ -327,61 +304,61 @@ print 'Created hyperpriors'
 
 
 ### model parameters
+# alpha
+alpha =     mc.Normal(
+                name = 'alpha',
+                mu =    0.,
+                tau =   1e-4,
+                value = 0.)
+
 # B0[s]
 B0_s =      mc.Normal(
                 name = 'B0_s',
-                mu =    mu_b_s,
+                mu =    0.,
                 tau =   sigma_b_s**-2,
                 value = np.zeros(len(states)))
 
 # B0[c]
 B0_c =      mc.Normal(
                 name = 'B0_c',
-                mu =    mu_b_c,
+                mu =    0.,
                 tau =   sigma_b_c**-2,
                 value = np.zeros(len(causes)))
 
 # B0[s,c]
 B0_sc =     mc.Normal(
                 name = 'B0_sc',
-                mu =    mu_b_sc,
+                mu =    0.,
                 tau =   sigma_b_sc**-2,
                 value = np.zeros(len(state_causes)))
-                
-# alpha
-alpha =     mc.Normal(
-                name = 'alpha',
-                mu =    0.0,
-                tau =   1.0e-4,
-                value = 0.0)
-
-# u[s,t]
-u_s =       mc.Normal(
-                name =  'u_s',
-                mu =    0.0,
-                tau =   sigma_u_s**-2,
-                value = np.zeros(len(state_syears)))
-
-# u[c,t]
-u_c =       mc.Normal(
-                name =  'u_c',
-                mu =    0.0,
-                tau =   np.dot(cause_syear_map, sigma_u_c**-2).astype('float'),
-                value = np.zeros(len(cause_syears)))
 
 # d[s]
 d_s =       mc.Normal(
                 name =  'd_s',
-                mu =    mu_d_s,
+                mu =    0.,
                 tau =   sigma_d_s**-2,
                 value = np.zeros(len(states)))
 
 # d[c]
 d_c =       mc.Normal(
                 name =  'd_c',
-                mu =    mu_d_c,
+                mu =    0.,
                 tau =   sigma_d_c**-2,
                 value = np.zeros(len(causes)))
+                
+# u[s,t]
+u_s =       mc.Normal(
+                name =  'u_s',
+                mu =    0.,
+                tau =   sigma_u_s**-2,
+                value = np.zeros(len(state_syears)))
+
+# u[c,t]
+u_c =       mc.Normal(
+                name =  'u_c',
+                mu =    0.,
+                tau =   np.dot(cause_syear_map, sigma_u_c**-2).astype('float'),
+                value = np.zeros(len(cause_syears)))
 print 'Created stochastic parameters'
 
 
@@ -390,19 +367,16 @@ print 'Created stochastic parameters'
 # random intercept by state
 @mc.deterministic
 def intercept_s(B0_s=B0_s):
-    # return np.dot(B0_s, state_indices)
     return state_indices_sp.dot(B0_s)
 
 # random intercept by cause
 @mc.deterministic
 def intercept_c(B0_c=B0_c):
-    # return np.dot(B0_c, cause_indices)
     return cause_indices_sp.dot(B0_c)
 
 # random intercept by state/cause interaction
 @mc.deterministic
 def intercept_sc(B0_sc=B0_sc):
-    # return np.dot(B0_sc, state_cause_indices)
     return state_cause_indices_sp.dot(B0_sc)
 print 'Created intercepts'
 
@@ -423,7 +397,6 @@ def rw_s(u_s=u_s):
     u_s_interp =    np.zeros(len(state_years))
     for s in states:
         u_s_interp[years_by_state[s]] = splev(years, splrep(syears, np.dot(syear_cumsum, u_s[syears_by_state[s]])))
-    # return np.dot(u_s_interp, state_year_indices)
     return state_year_indices_sp.dot(u_s_interp)
 
 # cumulative sum of cause random walk
@@ -432,7 +405,6 @@ def rw_c(u_c=u_c):
     u_c_interp =    np.zeros(len(cause_years))
     for c in causes:
         u_c_interp[years_by_cause[c]] = splev(years, splrep(syears, np.dot(syear_cumsum, u_c[syears_by_cause[c]])))
-    # return np.dot(u_c_interp, cause_year_indices)
     return cause_year_indices_sp.dot(u_c_interp)
 print 'Created random walks'
 
