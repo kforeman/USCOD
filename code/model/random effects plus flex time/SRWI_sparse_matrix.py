@@ -429,7 +429,7 @@ print 'Created likelihood'
     
 ### setup MCMC
 # compile variables into a model
-model_vars =    [[mu_b_s, sigma_b_s, mu_b_c, sigma_b_c, mu_b_sc, sigma_b_sc, sigma_u_s, sigma_u_c, mu_d_s, sigma_d_s, mu_d_c, sigma_d_c],
+model_vars =    [[sigma_b_s, sigma_b_c, sigma_b_sc, sigma_u_s, sigma_u_c, sigma_d_s, sigma_d_c],
                 [B0_s, B0_c, B0_sc, alpha, u_s, u_c, d_s, d_c],
                 [intercept_s, intercept_c, intercept_sc, drift_s, drift_c, rw_s, rw_c, exposure, estimate],
                 [data_likelihood]]
@@ -442,6 +442,7 @@ print 'Compiled model'
 for s in model.stochastics:
     model.use_step_method(mc.Metropolis, s)
 print 'Assigned step methods'
+
 
 
 ### fit the model
