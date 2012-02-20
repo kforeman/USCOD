@@ -80,6 +80,7 @@ import  numpy   as np
 import  pylab   as pl
 import  pysal
 import  os
+from    scipy               import sparse
 from    scipy.interpolate   import splrep, splev
 
 # setup directory info
@@ -142,6 +143,7 @@ states =        np.arange(len(state_names))
 
 # indices of observations for each state
 state_indices = np.array([data.state == s for s in states])
+state_indices_sp =  sparse.csr_matrix(state_indices).T
 
 # list of state/year pairs
 state_years =   [(s, y) for s in states for y in years]
@@ -172,9 +174,11 @@ data =          pl.rec_append_fields(
 
 # product of state and year (summing matrix for drift)
 year_by_state =         state_indices * data.year0
+year_by_state_sp =      sparse.csr_matrix(year_by_state).T
 
 # indices by state-year (for applying the interpolated random walk)
 state_year_indices =    np.array([state_indices[s] & year_indices[y] for s, y in state_years])
+state_year_indices_sp = sparse.csr_matrix(state_year_indices).T
 print 'Finished state indices'
 
 
@@ -194,6 +198,7 @@ causes =        np.arange(len(cause_names))
 
 # indices of observations for each cause
 cause_indices = np.array([data.cause == c for c in causes])
+cause_indices_sp =  sparse.csr_matrix(cause_indices).T
 
 # list of cause/year pairs
 cause_years =   [(c, y) for c in causes for y in years]
@@ -224,9 +229,11 @@ data =          pl.rec_append_fields(
 
 # product of cause and year (summing matrix for drift)
 year_by_cause =         cause_indices * data.year0
+year_by_cause_sp =      sparse.csr_matrix(year_by_cause).T
 
 # indices by cause-year (for applying the interpolated random walk)
 cause_year_indices =    np.array([cause_indices[c] & year_indices[y] for c, y in cause_years])
+cause_year_indices_sp = sparse.csr_matrix(cause_year_indices).T
 
 # map cause year to cause (because we have separate hyperpriors on u[c,t] by c)
 cause_syear_map =       np.array([[cy[0] == c for c in causes] for cy in cause_syears])
@@ -240,6 +247,7 @@ state_causes =          [(s, c) for s in states for c in causes]
 
 # indices by state-cause (for state-cause intercepts)
 state_cause_indices =   np.array([state_indices[s] & cause_indices[c] for s, c in state_causes])
+state_cause_indices_sp =sparse.csr_matrix(state_cause_indices).T
 
 
 
@@ -259,12 +267,15 @@ neighbor_states[np.isnan(neighbor_states)] = 0.
 
 # neighbording state for smoothing the intercepts
 intercept_smoothing_matrix =    neighbor_states[data.state].T
+intercept_smoothing_sp =        sparse.csr_matrix(intercept_smoothing_matrix).T
 
 # smoothing matrix for drift
 drift_smoothing_matrix =        intercept_smoothing_matrix * data.year0
+drift_smoothing_sp =            sparse.csr_matrix(drift_smoothing_matrix).T
 
 # smoothing matrix for interactions
 interaction_smoothing_matrix =  np.array([intercept_smoothing_matrix[s] * cause_indices[c] for s, c in state_causes])
+interaction_smoothing_sp =      sparse.csr_matrix(interaction_smoothing_matrix).T
 print 'Finished spatial smoothing indices'
 
 
@@ -354,11 +365,12 @@ B_c =       mc.Normal(
                 value = np.zeros(len(causes)))
 
 # B[s,c]
-B_sc =      mc.Normal(
-                name = 'B_sc',
+B_sc =      [mc.Normal(
+                name = 'B_sc_%d' % c,
                 mu =    0.,
                 tau =   sigma_b_sc**-2,
-                value = np.zeros(len(state_causes)))
+                value = np.zeros(len(states)))
+            for c in causes]
 
 # eta_Bsc[c]
 eta_Bsc =   mc.Beta(
@@ -411,28 +423,29 @@ print 'Created stochastic parameters'
 # random intercept by state
 @mc.deterministic
 def intercept_s(B_s=B_s, eta_Bs=eta_Bs):
-    return ((1-eta_Bs) * np.dot(B_s, state_indices)) + (eta_Bs * np.dot(B_s, intercept_smoothing_matrix))
+    return  (1-eta_Bs)*state_indices_sp.dot(B_s) + eta_Bs*intercept_smoothing_sp.dot(B_s)
 
 # random intercept by cause
 @mc.deterministic
 def intercept_c(B_c=B_c):
-    return np.dot(B_c, cause_indices)
+    return  cause_indices_sp.dot(B_c)
 
 # random intercept by state/cause interaction
 @mc.deterministic
 def intercept_sc(B_sc=B_sc, eta_Bsc=eta_Bsc):
-    return ((1-np.dot(eta_Bsc, cause_indices)) * np.dot(B_sc, state_cause_indices)) + (np.dot(eta_Bsc, cause_indices) * np.dot(B_sc, interaction_smoothing_matrix))
+    beta =  np.concatenate(B_sc)
+    return  (1-cause_indices_sp.dot(eta_Bsc))*state_cause_indices_sp.dot(beta) + cause_indices_sp.dot(eta_Bsc)*interaction_smoothing_sp.dot(beta)
 print 'Created intercepts'
 
 # cumulative effect of state drift
 @mc.deterministic
 def drift_s(d_s=d_s, eta_ds=eta_ds):
-    return ((1-eta_ds) * np.dot(d_s, year_by_state)) + (eta_ds * np.dot(d_s, drift_smoothing_matrix))
+    return  (1-eta_ds)*year_by_state_sp.dot(d_s) + eta_ds*drift_smoothing_sp.dot(d_s)
 
 # cumulative effect of cause drift
 @mc.deterministic
 def drift_c(d_c=d_c):
-    return np.dot(d_c, year_by_cause)
+    return  year_by_cause_sp.dot(d_c)
 print 'Created drifts'
 
 # cumulative sum of state random walk
@@ -441,7 +454,7 @@ def rw_s(u_s=u_s):
     u_s_interp =    np.zeros(len(state_years))
     for s in states:
         u_s_interp[years_by_state[s]] = splev(years, splrep(syears, np.dot(syear_cumsum, u_s[syears_by_state[s]])))
-    return np.dot(u_s_interp, state_year_indices)
+    return  state_year_indices_sp.dot(u_s_interp)
 
 # cumulative sum of cause random walk
 @mc.deterministic
@@ -449,7 +462,7 @@ def rw_c(u_c=u_c):
     u_c_interp =    np.zeros(len(cause_years))
     for c in causes:
         u_c_interp[years_by_cause[c]] = splev(years, splrep(syears, np.dot(syear_cumsum, u_c[syears_by_cause[c]])))
-    return np.dot(u_c_interp, cause_year_indices)
+    return  cause_year_indices_sp.dot(u_c_interp)
 print 'Created random walks'
 
 # exposure (population)
@@ -460,7 +473,7 @@ print 'Created exposure'
 # y[s,c,t=n]  ~ exp(alpha + gamma*n + exposure + B[s] + psi*avg(B[neighbors[s]]) + B[c] + B[s,c] + eta[c]*avg(B[neighbors[s],c]) + d[s]*n + d[c]*n + sum(u[s,t=0:n]) + sum(u[c,t=0:n]))
 @mc.deterministic
 def estimate(intercept_s=intercept_s, intercept_c=intercept_c, intercept_sc=intercept_sc, alpha=alpha, drift_s=drift_s, drift_c=drift_c, rw_s=rw_s, rw_c=rw_c):
-    return np.exp(intercept_s + intercept_c + intercept_sc + alpha + drift_s + drift_c + rw_s + rw_c + exposure)
+    return  np.exp(intercept_s + intercept_c + intercept_sc + alpha + drift_s + drift_c + rw_s + rw_c + exposure)
 print 'Created estimate'
 
 # poisson likelihood
@@ -494,7 +507,8 @@ mc.MAP([alpha, data_likelihood]).fit(method='fmin_powell', verbose=1)
 print 'Mapped alpha'
 mc.MAP([B_s, B_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 print 'Mapped intercepts'
-mc.MAP([B_sc, data_likelihood]).fit(method='fmin_powell', verbose=1)
+for c in causes:
+    mc.MAP([B_sc[c], data_likelihood]).fit(method='fmin_powell', verbose=1)
 print 'Mapped interactions'
 mc.MAP([d_s, d_c, data_likelihood]).fit(method='fmin_powell', verbose=1)
 print 'Mapped drifts'
@@ -563,7 +577,7 @@ upper_estimate =    percentile(model_estimates, 97.5, axis=0)
 output =            pl.rec_append_fields(  rec =   data, 
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
-pl.rec2csv(output, proj_dir + 'outputs/model results/random effects plus flex time/srwi_MH_results.csv')
+pl.rec2csv(output, proj_dir + 'outputs/model results/spatial smoothing/SWRI_with_spatial.csv')
 
 
 '''
