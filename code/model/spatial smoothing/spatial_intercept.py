@@ -67,6 +67,14 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing
             sigma_d_c   ~ U(0, 1e2) 
 '''
 
+### define which model to run
+# sex? (1=Male, 2=Female)
+sex =   1
+# age? (Under5, 5to14, 15to29, 30to44, 45to59, 60to74, 75plus)
+age =   'Under5'
+
+
+
 ### setup Python
 # import necessary libraries
 import  pymc    as mc
@@ -88,8 +96,8 @@ proj_dir =  'D:/Projects/' + project +'/' if (os.environ['OS'] == 'Windows_NT') 
 data =      pl.csv2rec(proj_dir + 'data/model inputs/state_random_effects_input.csv')
 print 'Data loaded'
 
-# keep just males aged 60-74 for now
-data =      data[(data.sex == 1) & (data.age_group == '60to74')]
+# keep just the specified age and sex
+data =      data[(data.sex == sex) & (data.age_group == age)]
 
 # remove any instances of population zero, which might blow things up due to having offsets of negative infinity
 data =      data[data.pop > 0.]
@@ -487,7 +495,7 @@ print 'Mapped drifts'
 # draw some samples
 print 'Beginning sampling'
 #model.sample(iter=200000, burn=50000, thin=150, verbose=True)
-model.sample(iter=100000, burn=50000, thin=50, verbose=True)
+model.sample(iter=70000, burn=50000, thin=200, verbose=True)
 #model.sample(100)
 
 
@@ -548,5 +556,11 @@ upper_estimate =    percentile(model_estimates, 97.5, axis=0)
 output =            pl.rec_append_fields(  rec =   data, 
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
-pl.rec2csv(output, proj_dir + 'outputs/model results/spatial smoothing/spatial_intercept.csv')
+pl.rec2csv(output, proj_dir + 'outputs/model results/spatial smoothing/spatial_intercept_' + sex + '_' + age + '.csv')
 
+# save draws
+draws =     pl.rec_append_fields(
+                    rec =   data,
+                    names = ['draw_' + str(i+1) for i in range(100)],
+                    arrs =  [model.trace('estimate')[i] for i in range(100)])
+pl.rec2csv(draws, proj_dir + 'outputs/model results/spatial smoothing/spatial_intercept_draws_' + sex + '_' + age + '.csv')
