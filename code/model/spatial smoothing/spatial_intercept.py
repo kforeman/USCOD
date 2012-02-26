@@ -68,10 +68,10 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing
 '''
 
 ### define which model to run
-# sex? (1=Male, 2=Female)
-sex =   1
+# sex? (1 = Male, 2 = Female)
+sex =   2
 # age? (Under5, 5to14, 15to29, 30to44, 45to59, 60to74, 75plus)
-age =   'Under5'
+age =   '75plus'
 
 
 
@@ -556,11 +556,11 @@ upper_estimate =    percentile(model_estimates, 97.5, axis=0)
 output =            pl.rec_append_fields(  rec =   data, 
                         names = ['mean', 'lower', 'upper'], 
                         arrs =  [mean_estimate, lower_estimate, upper_estimate])
-pl.rec2csv(output, proj_dir + 'outputs/model results/spatial smoothing/spatial_intercept_' + sex + '_' + age + '.csv')
+pl.rec2csv(output, proj_dir + 'outputs/model results/spatial smoothing/spatial_intercept_' + str(sex) + '_' + age + '.csv')
 
 # save draws
 draws =     pl.rec_append_fields(
                     rec =   data,
                     names = ['draw_' + str(i+1) for i in range(100)],
                     arrs =  [model.trace('estimate')[i] for i in range(100)])
-pl.rec2csv(draws, proj_dir + 'outputs/model results/spatial smoothing/spatial_intercept_draws_' + sex + '_' + age + '.csv')
+pl.rec2csv(draws, proj_dir + 'outputs/model results/spatial smoothing/spatial_intercept_draws_' + str(sex) + '_' + age + '.csv')
