@@ -17,6 +17,8 @@ Purpose:	upload USCOD model results to the online database
 		local formula =	"y_{s,c,t} \\sim \\exp(\\alpha + \\gamma \\times t + exposure + \\hat \\beta_{s} + \\beta_{c} + \\beta_{s,c} + d_{s} \\times t + d_{c} \\times t + \\sum_{n=0}^t(u_{s,n}) + \\sum_{n=0}^t(u_{c,n}))"
 	// comment (additional model notes; optional)
 		local comments = "Spatial smoothing on state intercepts only (not on interactions or slopes). Flexible models on time by cause and state."
+	// should the model go at the beginning or the end of the model list? "first" or "last"
+		local position = "first"
 	// should this model overwrite others with the same name?
 		local overwrite = 0
 	// location of model results in csv format
@@ -27,7 +29,7 @@ Purpose:	upload USCOD model results to the online database
 		// otherwise, first specify the directory
 			local file_dir =	"`proj_dir'/outputs/model results/spatial smoothing/"
 		// then the file stub (first portion of file name)
-			local file_stub =	"full_spatial_draws_"
+			local file_stub =	"spatial_intercept_draws_"
 		// finally, the tails to loop through
 			local file_tails
 			foreach a in "Under5" "5to14" "15to29" "30to44" "45to59" "60to74" "75plus" {
@@ -64,6 +66,11 @@ Purpose:	upload USCOD model results to the online database
 			error
 		}
 	}
+
+// figure out what the model's sort number should be
+	odbc load, exec("SELECT * FROM uscod_models;") dsn(sabod) clear
+	summarize sort_order, meanonly
+	local sort_order = cond("`position'" == "first", `r(min)'-1, `r(max)'+1)
 
 // load in the data
 	if `multi_file' == 0 insheet using "`single_file'", comma clear
@@ -145,7 +152,7 @@ Purpose:	upload USCOD model results to the online database
 	reshape wide mean upper lower, i(state cause) j(sex_age_year) string
 
 // make a new entry for this model in the database
-	odbc exec("INSERT INTO uscod_models (name, formula, comments) VALUES ('`name'', '`formula'', '`comments'');"), dsn(sabod)
+	odbc exec("INSERT INTO uscod_models (name, formula, comments, sort_order) VALUES ('`name'', '`formula'', '`comments'', `sort_order');"), dsn(sabod)
 
 // find the model number of the new entry
 	preserve
