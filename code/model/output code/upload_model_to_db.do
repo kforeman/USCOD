@@ -1,7 +1,7 @@
 /*
 Author:		Kyle Foreman
 Created:	24 Feb 2011
-Updated:	24 Feb 2011
+Updated:	27 Feb 2011
 Purpose:	upload USCOD model results to the online database
 */
 
@@ -11,16 +11,30 @@ Purpose:	upload USCOD model results to the online database
 	else local proj_dir "/shared/projects/`proj'"
 
 // some information about this model
-	// location of model results in csv format
-		local file =	"`proj_dir'/outputs/model results/simple loess/simple_loess_in_R.csv"
 	// name for model menus
-		local name =	"Simple LOESS"
+		local name =	"Spatial Intercepts and Slope"
 	// formula (latex, but with *double* escape characters)
-		local formula =	"\\ln(rate_{state, age, sex, cause, year}) = \\mathrm{LOESS}(\\ln(rate_{state, age, sex, cause}))"
+		local formula =	"y_{s,c,t} ~ \\exp(\\alpha + \\gamma \\times t + exposure + \\hat \\beta_{s} + \\beta_{c} + \\hat \\beta_{s,c} + \\hat d_{s} \\times t + d_{c} \\times t + \\sum_{n=0}^t(u_{s,n}) + \\sum_{n=0}^t(u_{c,n}))"
 	// comment (additional model notes; optional)
-		local comment = ""
+		local comments = "Spatial smoothing on state intercepts, state/cause interactions, and state total-mortality slopes. Flexible models on time by cause and state (no spatial smoothing)."
 	// should this model overwrite others with the same name?
 		local overwrite = 0
+	// location of model results in csv format
+		// just one file?
+			local multi_file =	1
+		// if just one file, put its path here
+			local single_file =	"`proj_dir'/outputs/model results/simple loess/simple_loess_in_R.csv"
+		// otherwise, first specify the directory
+			local file_dir =	"`proj_dir'/outputs/model results/spatial smoothing/"
+		// then the file stub (first portion of file name)
+			local file_stub =	"full_spatial_draws_"
+		// finally, the tails to loop through
+			local file_tails
+			foreach a in "Under5" "5to14" "15to29" "30to44" "45to59" "60to74" "75plus" {
+				foreach s in 1 2 {
+					local file_tails `file_tails' "`s'_`a'"
+				}
+			}
 
 // figure out if we already have a working connection to mysql
 	capture odbc query sabod
@@ -52,12 +66,26 @@ Purpose:	upload USCOD model results to the online database
 	}
 
 // load in the data
-	insheet using "`file'", comma case clear
+	if `multi_file' == 0 insheet using "`single_file'", comma clear
+	else {
+		clear
+		foreach t of local file_tails {
+			preserve
+			insheet using "`file_dir'/`file_stub'`t'.csv", comma clear
+			tempfile tf
+			save `tf', replace
+			restore
+			append using `tf'
+		}
+	}
 
 // get data in the right format
-	keep sex year age_group stateFips underlying draw*
+	capture confirm variable mean
+	if !_rc local has_mean = "mean"
+	else local has_mean = ""
+	keep sex year age_group statefips underlying draw* `has_mean'
 	rename underlying cause
-	rename stateFips state
+	rename statefips state
 	rename age_group age
 	capture confirm string variable state
 	if _rc {
@@ -71,19 +99,19 @@ Purpose:	upload USCOD model results to the online database
 
 // next level
 	replace cause = substr(cause, 1, 3)
-	collapse (sum) draw*, by(year sex cause age state)
+	collapse (sum) draw* `has_mean', by(year sex cause age state)
 	tempfile level2
 	save `level2', replace
 
 // and the highest (just A/B/C)
 	replace cause = substr(cause, 1, 1)
-	collapse (sum) draw*, by(year sex cause age state)
+	collapse (sum) draw* `has_mean', by(year sex cause age state)
 	tempfile level1
 	save `level1', replace
 
 // finally total deaths
 	replace cause = "T"
-	collapse (sum) draw*, by(year sex cause age state)
+	collapse (sum) draw* `has_mean', by(year sex cause age state)
 
 // put them back together
 	append using `level3'
@@ -94,19 +122,19 @@ Purpose:	upload USCOD model results to the online database
 // add national results
 	tempfile state_results
 	save `state_results', replace
-	collapse (sum) draw*, by(year sex cause age)
+	collapse (sum) draw* `has_mean', by(year sex cause age)
 	generate state = "00"
 	append using `state_results'
 
 // add totals across ages
 	tempfile age_results
 	save `age_results', replace
-	collapse (sum) draw*, by(year sex cause state)
+	collapse (sum) draw* `has_mean', by(year sex cause state)
 	generate age = "Total"
 	append using `age_results'
 
 // find mean and confidence intervals
-	egen mean = rowmean(draw*)
+	if missing("`has_mean'") egen mean = rowmean(draw*)
 	egen lower = rowpctile(draw*), p(2.5)
 	egen upper = rowpctile(draw*), p(97.5)
 	drop draw*
