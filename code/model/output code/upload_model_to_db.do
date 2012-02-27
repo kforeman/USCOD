@@ -12,11 +12,11 @@ Purpose:	upload USCOD model results to the online database
 
 // some information about this model
 	// name for model menus
-		local name =	"Spatial Intercepts and Slope"
+		local name =	"Spatial Intercept"
 	// formula (latex, but with *double* escape characters)
-		local formula =	"y_{s,c,t} ~ \\exp(\\alpha + \\gamma \\times t + exposure + \\hat \\beta_{s} + \\beta_{c} + \\hat \\beta_{s,c} + \\hat d_{s} \\times t + d_{c} \\times t + \\sum_{n=0}^t(u_{s,n}) + \\sum_{n=0}^t(u_{c,n}))"
+		local formula =	"y_{s,c,t} \\sim \\exp(\\alpha + \\gamma \\times t + exposure + \\hat \\beta_{s} + \\beta_{c} + \\beta_{s,c} + d_{s} \\times t + d_{c} \\times t + \\sum_{n=0}^t(u_{s,n}) + \\sum_{n=0}^t(u_{c,n}))"
 	// comment (additional model notes; optional)
-		local comments = "Spatial smoothing on state intercepts, state/cause interactions, and state total-mortality slopes. Flexible models on time by cause and state (no spatial smoothing)."
+		local comments = "Spatial smoothing on state intercepts only (not on interactions or slopes). Flexible models on time by cause and state."
 	// should this model overwrite others with the same name?
 		local overwrite = 0
 	// location of model results in csv format
