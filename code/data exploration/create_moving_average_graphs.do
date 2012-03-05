@@ -1,8 +1,8 @@
 /*
 Author:		Kyle Foreman
 Created:	02 Mar 2011
-Updated:	02 Mar 2011
-Purpose:	create moving averages by disease/region for broader age groups
+Updated:	05 Mar 2011
+Purpose:	create age-adjusted moving averages by disease/region for broader age groups
 */
 
 // setup directory info for this project
@@ -10,12 +10,29 @@ Purpose:	create moving averages by disease/region for broader age groups
 	if c(os) == "Windows" local proj_dir "D:/projects/`proj'"
 	else local proj_dir "/shared/projects/`proj'"
 
-// find cause names
-	insheet using "`proj_dir'/data/cod/clean/COD maps/uscod_for_menus.csv", comma clear
-	levelsof uscod, l(uscods) c
-	foreach c of local uscods {
-		levelsof uscodname if uscod == "`c'", l(`c'_name) c
-	}
+// create region/state lookups
+	use "`proj_dir'/data/geo/raw/sandeeps merge maps/USBEA_regions.dta", clear
+	tostring statefip, generate(state)
+	replace state = "0" + state if statefip < 10
+	drop statefip
+	rename hsastate state_abbr
+	decode usbearegion, generate(region)
+	drop usbearegion
+	local N = _N+1
+	set obs `N'
+	replace state = "00" in `N'
+	replace state_abbr = "US" in `N'
+	replace state_name = "National" in `N'
+	replace region = "National" in `N'
+	outsheet using "`proj_dir'/outputs/data exploration/moving averages/states.csv", comma replace
+	keep state region
+	tempfile regions
+	save `regions', replace
+
+// make a list of regions only
+	duplicates drop region, force
+	keep region
+	outsheet using "`proj_dir'/outputs/data exploration/moving averages/regions.csv", comma replace
 
 // load in the dataset 
 	use if inrange(age, 0, 85) & underlying != "T" using "`proj_dir'/data/cod/clean/redistributed/redistributed.dta", clear
@@ -27,15 +44,61 @@ Purpose:	create moving averages by disease/region for broader age groups
 	fillin stateFips age sex year underlying
 	replace deaths = 0 if _fillin
 
+// add on population
+	merge m:1 age sex year stateFips using "`proj_dir'/data/pop/clean/statePopulations.dta", keep(match) nogen
+	rename stateFips state
+
+// add on national results
+	preserve
+		collapse (sum) deaths pop, by(age sex year underlying)
+		generate state = "00"
+		tempfile national
+		save `national', replace
+	restore, preserve
+
+// add on regional results
+	preserve
+		merge m:1 state using `regions', keep(match) nogen
+		collapse (sum) deaths pop, by(age sex year underlying region)
+		rename region state
+		tempfile regional
+		save `regional', replace
+	restore
+	append using `national'
+	append using `regional'
+
+// combine terminal age groups
+	drop if age < 35
+	replace age = 80 if age == 85
+	collapse (sum) deaths pop, by(age sex year underlying state)
+
+// add on age weights
+	preserve
+		use "`proj_dir'/data/pop/age_weights.dta", clear
+		keep if inrange(age, 35, 80)
+		summarize weight if inrange(age, 35, 64), meanonly
+		replace weight = weight / `r(sum)' if inrange(age, 35, 64)
+		summarize weight if age >= 65, meanonly
+		replace weight = weight / `r(sum)' if age >= 65
+		tempfile age_weights
+		save `age_weights', replace
+	restore
+	merge m:1 age using `age_weights', nogen
+
+// generate rates
+	generate rate = deaths / pop * 100000
+
+// age standardize rates
+	replace rate = rate * weight
+
 // combine into broader groups
 	generate age_group = "35to64" if inrange(age, 35, 64)
 	replace age_group =  "65plus" if age >= 65
 	drop if age_group == ""
-	collapse (sum) deaths, by(stateFips age_group sex underlying year)
+	collapse (sum) deaths rate, by(state age_group sex underlying year)
 
 // cleanup data	
 	rename underlying cause
-	rename stateFips state
 	rename age_group age
 	
 // save the most detailed level
@@ -44,19 +107,19 @@ Purpose:	create moving averages by disease/region for broader age groups
 	
 // next level
 	replace cause = substr(cause, 1, 3)
-	collapse (sum) deaths, by(year sex cause age state)
+	collapse (sum) deaths rate, by(year sex cause age state)
 	tempfile level2
 	save `level2', replace
 	
 // and the highest (just A/B/C)
 	replace cause = substr(cause, 1, 1)
-	collapse (sum) deaths, by(year sex cause age state)
+	collapse (sum) deaths rate, by(year sex cause age state)
 	tempfile level1
 	save `level1', replace
 	
 // finally total deaths
 	replace cause = "T"
-	collapse (sum) deaths, by(year sex cause age state)
+	collapse (sum) deaths rate, by(year sex cause age state)
 	replace deaths = round(deaths)
 	
 // put them back together
@@ -65,28 +128,32 @@ Purpose:	create moving averages by disease/region for broader age groups
 	append using `level1'
 	duplicates drop
 
-// add national results
-	tempfile state_results
-	save `state_results', replace
-	collapse (sum) deaths, by(year sex cause age)
-	generate state = "00"
-	append using `state_results'
-
 // create five year moving average
 	egen id = group(cause sex age state)
 	tsset id year
 	tssmooth ma smooth = deaths, window(2 1 2)
 	drop deaths
 	rename smooth deaths
+	tssmooth ma smooth = rate, window(2 1 2)
+	drop rate
+	rename smooth rate
 
 // make year wide
-	reshape wide deaths, i(sex cause age state) j(year)
+	reshape wide deaths rate, i(sex cause age state) j(year)
 
 // save deaths
-	outsheet using "`proj_dir'/outputs/data exploration/moving averages/deaths.csv", comma replace
+	levelsof cause, l(causes) c
+	preserve
+	foreach c of local causes {
+		keep if cause == "`c'"
+		outsheet using "`proj_dir'/outputs/data exploration/moving averages/deaths_`c'.csv", comma replace
+		restore, preserve
+	}
+	restore
 	keep if state == "00"
 	outsheet using "`proj_dir'/outputs/data exploration/moving averages/deaths_national.csv", comma replace
 
+/* This shouldn't be necessary anymore, since they're age-standardized rates
 // get population into the same format
 	use if age<= 85 using "`proj_dir'/data/pop/clean/statePopulations.dta", clear
 	generate age_group = "35to64" if inrange(age, 35, 64)
@@ -108,22 +175,7 @@ Purpose:	create moving averages by disease/region for broader age groups
 	outsheet using "`proj_dir'/outputs/data exploration/moving averages/pop.csv", comma replace
 	keep if state == "00"
 	outsheet using "`proj_dir'/outputs/data exploration/moving averages/pop_national.csv", comma replace
-
-// create region/state lookups
-	use "`proj_dir'/data/geo/raw/sandeeps merge maps/USBEA_regions.dta", clear
-	tostring statefip, generate(state)
-	replace state = "0" + state if statefip < 10
-	drop statefip
-	rename hsastate state_abbr
-	decode usbearegion, generate(region)
-	drop usbearegion
-	local N = _N+1
-	set obs `N'
-	replace state = "00" in `N'
-	replace state_abbr = "US" in `N'
-	replace state_name = "National" in `N'
-	replace region = "National" in `N'
-	outsheet using "`proj_dir'/outputs/data exploration/moving averages/states.csv", comma replace
+*/
 
 // create cause list
 	insheet using "`proj_dir'/data/cod/clean/COD maps/uscod_for_menus.csv", comma clear
