@@ -12,3 +12,4 @@ def spatial_intercept():
     
 
 available_components = [eval(c) for c in dir() if c[0:2] != '__']
+
