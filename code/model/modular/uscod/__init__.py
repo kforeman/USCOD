@@ -5,13 +5,13 @@ import  pylab   as pl
 from    scipy   import sparse
 import  inspect
 
-# import submodules
-import  Components
-
 # define model class
-class USCOD:
+class Model:
+    '''
+    Provide the model name (any string), sex (1=male or 2=female), and age ('Under5', '5to14', '15to29', '30to44', '45to59', '60to74', '75plus')
+    '''
 
-    def __init__(self, model_name, sex, age):
+    def __init__(self, model_name, sex, age, csv='D:/projects/USCOD/data/model inputs/state_random_effects_input.csv'):
         
         # check to make sure the initialization arguments work
         if type(model_name) != str:
@@ -29,11 +29,14 @@ class USCOD:
         self.age =          age
         
         # start the model with no components in place
-        self.included_components =  []
+        self.registered_components =  []
+        
+        # load the data
+        self.load_data(csv)
 
     
     
-    def load_data(self, csv='D:/projects/USCOD/data/model inputs/state_random_effects_input.csv'):
+    def load_data(self, csv):
         '''
         load the data from csv
         ### Note: for now, only takes in data as a csv
@@ -61,34 +64,12 @@ class USCOD:
 
         # list current components
         print 'Currently included components:'
-        for c in self.included_components:
+        for c in self.registered_components:
             print '%s:\n\t%s' % (c.__name__, c.__doc__)
-        if len(self.included_components) == 0:
+        if len(self.registered_components) == 0:
             print 'None'
-            
-        # list available components
-        print '\nAvailable components:'
-        for c in Components.available_components:
-            print '%s:\n\t%s' % (c.__name__, c.__doc__)
 
             
-            
-    def add_components(self, new_components):
-        '''
-        add new components to a model
-        can either be a single component or a list of components
-        use list_components() to see a list of what's available
-        '''
-        if type(new_components) != list:
-            new_components = [new_components]
-        for c in new_components:
-            if self.included_components.count(c) == 0:
-                self.included_components.append(c)
-                print 'Added %s to model' % c.__name__
-            else:
-                print 'Skipped %s because it is already in the model' % c.__name__
-        
-
             
     def list_parameters(self, components=[]):
         '''
@@ -97,7 +78,7 @@ class USCOD:
         if type(components) != list:
             components = [components]
         if components == []:
-            components = self.included_components
+            components = self.registered_components
         for c in components:
             params =    inspect.getargspec(c)
             print params.args
@@ -105,18 +86,40 @@ class USCOD:
             
             
             
-            
 class Component:
-    def __init__(self, a):
-        self.a = a
-    def __call__:
+    def __init__(self, parent, component_name):
+        self.parent = parent
+        self.component_name = component_name
+    def __call__(self):
         return self.a
+    def register(self):
+        '''
+        Registers this model component to a parent model
+        If the component already exists, then deregisters and reregisters it
+        '''
+        if self.parent.registered_components.count(self) == 0:
+            self.parent.registered_components.append(self)
+            print 'Added component %s to model %s.' % (self.component_name, self.parent.model_name)
+        else:
+            self.deregister()
+            self.parent.registered_components.append(self)
+            print 'Reregistered component %s in model %s.' % (self.component_name, self.parent.model_name)
+    def deregister(self):
+        '''
+        Removes component from the model
+        '''
+        if self.parent.registered_components.count(self) == 0:
+            raise ValueError('Component %s not found in model %s.' % (self.component_name, self.parent.model_name))
+        else:
+            self.parent.registered_components.remove(self)
+            print 'Removed existing component %s from model %s.' % (self.component_name, self.parent.model_name)
+        
             
 class RandomEffect(Component):
-    def set_unit(self, unit)
+    def set_unit(self, unit):
         self.unit = unit
             
-            
+
             
             
             
@@ -126,7 +129,9 @@ class RandomEffect(Component):
 import os
 os.chdir('D:/projects/USCOD/code/model/modular')
 import uscod
-t = uscod.USCOD('test', 1, 'Under5')
+t = uscod.Model('test', 1, 'Under5')
+x = uscod.Component(t, 'blah')
+x.register()
 
 '''
         
