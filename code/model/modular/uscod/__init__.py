@@ -90,12 +90,14 @@ class USCOD:
         
 
             
-    def list_parameters(self, components=self.included_components):
+    def list_parameters(self, components=[]):
         '''
         returns all the parameters associated with a given set of components
         '''
         if type(components) != list:
             components = [components]
+        if components == []:
+            components = self.included_components
         for c in components:
             params =    inspect.getargspec(c)
             print params.args
@@ -104,10 +106,15 @@ class USCOD:
             
             
             
+class Component:
+    def __init__(self, a):
+        self.a = a
+    def __call__:
+        return self.a
             
-            
-            
-            
+class RandomEffect(Component):
+    def set_unit(self, unit)
+        self.unit = unit
             
             
             
