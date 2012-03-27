@@ -65,7 +65,7 @@ class Model:
         # list current components
         print 'Currently included components:'
         for c in self.registered_components:
-            print '%s:\n\t%s' % (c.__name__, c.__doc__)
+            print '%s:\n\t%s' % (c.component_name, c.__doc__)
         if len(self.registered_components) == 0:
             print 'None'
 
@@ -90,8 +90,7 @@ class Component:
     def __init__(self, parent, component_name):
         self.parent = parent
         self.component_name = component_name
-    def __call__(self):
-        return self.a
+
     def register(self):
         '''
         Registers this model component to a parent model
@@ -104,6 +103,7 @@ class Component:
             self.deregister()
             self.parent.registered_components.append(self)
             print 'Reregistered component %s in model %s.' % (self.component_name, self.parent.model_name)
+
     def deregister(self):
         '''
         Removes component from the model
@@ -117,6 +117,9 @@ class Component:
             
 class RandomEffect(Component):
     def set_unit(self, unit):
+        '''
+        Set the 
+        '''
         self.unit = unit
             
 
