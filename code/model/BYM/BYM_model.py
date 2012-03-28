@@ -20,7 +20,7 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing (B
     y_{s,c,t}  ~ \exp(\alpha + \gamma \times t + exposure + SI_{s} + CI_{c} + XI_{s,c} + SS_{s} \times t + CS_{c} \times t + \sum_{n=0}^t(SRW_{s,n}) + \sum_{n=0}^t(CRW_{c,n}))
 
         
-        roughly the average log mortality rate
+        average log mortality rate (roughly...)
             \alpha  ~ \Normal(0, 1e-4)
         
         annual change in average log mortality rate
@@ -28,20 +28,21 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing (B
 
         exposure
             \ln(pop_{s,c,t})
+            
+        cause random intercept
+            CI_{c}  ~ \Normal(0, 1/sigma_{CI}^2)
         
         spatial random intercept (BYM smoothing)
             SI_{s}  ~ \Normal(SU_{s}, 1/sigma_{SI}^2)
             SU_{s} | SU_{j, j\not=s}    ~ \Normal(\sum(SU_{j})/n_{s}, n_{s}/sigma_{SU}^2)
             constraint: \sum_{s}(SU) = 0
-            
-        cause random intercept
-            CI_{c}  ~ \Normal(0, 1/sigma_{CI}^2)
-            constraint: \sum_{c}(CI) = 0
+                        \sum_{s}(SI) = 0
         
         cause/spatial interaction intercept (BYM smoothing over space within cause)
             XI_{s,c}    ~ \Normal(XU_{s,c}, 1/sigma_{XI}^2)
             XU_{s,c} | XU_{j,c,j\not=s} ~ \Normal(\sum(XU_{j,c})/n_{s}, n_{s}/sigma_{XU}^2)
             constraint: \sum_{s}(XU_{c}) = 0
+                        \sum_{s}(XI_{c}) = 0
      
         temporal drift by state (ie random slope), (BYM smoothing)
             SS_{s}  ~ \Normal(SV_{s}, 1/sigma_{SS}^2)
@@ -63,14 +64,14 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing (B
 
 
     hyperpriors
-        sigma   ~ U(0, 1e2) 
+        sigma_{x}       ~ U(0, 1e2) 
 '''
 
 ### define which model to run
 # sex? (1 = Male, 2 = Female)
-sex =   2
+sex =   1
 # age? (Under5, 5to14, 15to29, 30to44, 45to59, 60to74, 75plus)
-age =   '75plus'
+age =   '60to74'
 # model name? (for prefixing output files)
 mod_name =  'BYM'
 
@@ -286,56 +287,92 @@ print 'Finished spatial smoothing indices'
 
 ### hyperpriors
 # non-informative priors on both mu and sigma for each set of random effects
-# B_hat[s]
-sigma_b_s = mc.Uniform(
-                name =  'sigma_b_s',
+# Spatial Intercept (BYM) - two values, structured and unstructured
+sigma_SI =  mc.Uniform(
+                name =  'sigma_SI',
+                lower = 0.,
+                upper = 1e2,
+                value = np.ones(2))
+
+# Cause Intercept
+sigma_CI =  mc.Uniform(
+                name =  'sigma_CI',
                 lower = 0.,
                 upper = 1e2,
                 value = 1.)
 
-# B[c]
-sigma_b_c = mc.Uniform(
-                name =  'sigma_b_c',
+# Spatial/Cause Interaction (BYM)
+sigma_XI =  mc.Uniform(
+                name =  'sigma_XI',
+                lower = 0.,
+                upper = 1e2,
+                value = np.ones(2))
+
+# Spatial Component - Temporal Drift (BYM)
+sigma_SS =  mc.Uniform(
+                name =  'sigma_SS',
+                lower = 0.,
+                upper = 1e2,
+                value = np.ones(2))
+
+# Cause - Temporal Drift
+sigma_CS =  mc.Uniform(
+                name =  'sigma_CS',
                 lower = 0.,
                 upper = 1e2,
                 value = 1.)
 
-# B_hat[s,c]
-sigma_b_sc =mc.Uniform(
-                name =  'sigma_b_sc',
+# Temporal Random Walk - Spatial Component
+sigma_SRW = mc.Uniform(
+                name =  'sigma_SRW',
                 lower = 0.,
                 upper = 1e2,
                 value = 1.)
 
-# d_hat[s]
-sigma_d_s =  mc.Uniform(
-                name =  'sigma_d_s',
-                lower = 0.,
-                upper = 1e2,
-                value = 1.)
-
-# d[c]
-sigma_d_c = mc.Uniform(
-                name =  'sigma_d_c',
-                lower = 0.,
-                upper = 1e2,
-                value = 1.)
-
-# u[s,t]
-sigma_u_s = mc.Uniform(
-                name =  'sigma_u_s',
-                lower = 0.,
-                upper = 1e2,
-                value = 1.)
-
-# u[c,t]
-sigma_u_c = mc.Uniform(
-                name =  'sigma_u_c',
+# Temporal Random Walk - Cause (one value per cause)
+sigma_CRW = mc.Uniform(
+                name =  'sigma_CRW',
                 lower = 0.,
                 upper = 1e2,
                 value = np.ones(len(causes)))
 print 'Created hyperpriors'
 
+
+'''
+ 
+            
+        cause random intercept
+            CI_{c}  ~ \Normal(0, 1/sigma_{CI}^2)
+        
+        spatial random intercept (BYM smoothing)
+            SI_{s}  ~ \Normal(SU_{s}, 1/sigma_{SI}^2)
+            SU_{s} | SU_{j, j\not=s}    ~ \Normal(\sum(SU_{j})/n_{s}, n_{s}/sigma_{SU}^2)
+            constraint: \sum_{s}(SU) = 0
+                        \sum_{s}(SI) = 0
+        
+        cause/spatial interaction intercept (BYM smoothing over space within cause)
+            XI_{s,c}    ~ \Normal(XU_{s,c}, 1/sigma_{XI}^2)
+            XU_{s,c} | XU_{j,c,j\not=s} ~ \Normal(\sum(XU_{j,c})/n_{s}, n_{s}/sigma_{XU}^2)
+            constraint: \sum_{s}(XU_{c}) = 0
+                        \sum_{s}(XI_{c}) = 0
+     
+        temporal drift by state (ie random slope), (BYM smoothing)
+            SS_{s}  ~ \Normal(SV_{s}, 1/sigma_{SS}^2)
+            SV_{s} | SV_{j, j\not=s}    ~ \Normal(\sum(SV_{j})/n_{s}, n_{s}/sigma_{SV}^2)
+            constraint: \sum_{s}(SS) = 0
+     
+        temporal drift by cause (ie random slope)
+            CS_{c}  ~ \Normal(0, 1/sigma_{CS}^2)
+            constraint: \sum_{c}(CS) = 0
+            
+        random walk in time by state
+            SRW_{s,t}   ~ \Normal(0, 1/sigma_{SRW}^2)
+            constraint: \sum_{t}(SRW_{s}) = 0
+        
+        random walk in time by cause
+            CRW_{c,t}   ~ \Normal(0, 1/sigma_{CRW, c}^2)
+            constraint: \sum_{t}(CRW_{c}) = 0
+'''
 
 
 ### model parameters
@@ -346,19 +383,32 @@ alpha =     mc.Normal(
                 tau =   1e-4,
                 value = 0.)
 
-# B_hat[s]
-B_s =       mc.Normal(
-                name = 'B_s',
+# gamma
+gamma =     mc.Normal(
+                name = 'gamma',
+                mu =    0.,
+                tau =   1e-4,
+                value = 0.)
+
+# cause intercept
+CI =        mc.Normal(
+                name = 'B_c',
+                mu =    0.,
+                tau =   sigma_CI**-2,
+                value = np.zeros(len(causes)))
+
+# state intercept (BYM)
+# structured portion
+SU =        np.zeros(len(states))
+@mc.deterministic
+def SU_mu(SU=SU):
+    return SU
+SU =        mc.Normal(
+                name = 'SU',
                 mu =    0.,
                 tau =   sigma_b_s**-2,
                 value = np.zeros(len(states)))
 
-# B[c]
-B_c =       mc.Normal(
-                name = 'B_c',
-                mu =    0.,
-                tau =   sigma_b_c**-2,
-                value = np.zeros(len(causes)))
 
 # B_hat[s,c]
 B_sc =      [mc.Normal(
