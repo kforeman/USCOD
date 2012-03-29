@@ -70,7 +70,7 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing (G
 # sex? (1 = Male, 2 = Female)
 sex =   1
 # age? (Under5, 5to14, 15to29, 30to44, 45to59, 60to74, 75plus)
-age =   '75plus'
+age =   '45to59'
 # model name? (for prefixing output files)
 mod_name =  'GP'
 
@@ -423,7 +423,7 @@ print 'Created intercepts'
 # overall drift (slope)
 @mc.deterministic
 def gamma_pred(gamma=gamma):
-    return  data.year0.dot(gamma)
+    return  data.year0 * gamma
 
 # cumulative effect of cause drift
 @mc.deterministic
