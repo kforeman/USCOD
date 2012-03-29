@@ -93,7 +93,7 @@ proj_dir =  'D:/Projects/' + project +'/' if (os.environ['OS'] == 'Windows_NT') 
 
 ### setup the data
 # load in the csv
-data =      pl.csv2rec(proj_dir + 'data/model inputs/state_random_effects_input.csv')
+data =      pl.csv2rec(proj_dir + 'data/model inputs/downsampled.csv')
 print 'Data loaded'
 
 # keep just the specified age and sex
@@ -112,22 +112,17 @@ data =          pl.rec_append_fields(
                     arrs =  np.array(data.year - np.min(data.year))
                 )
 
+# set years to go from 0 to (num years - 1)
+for i,y in enumerate(np.sort(np.unique(data.year0))):
+    data.year0[data.year0 == y] = i
+
 # make a list of years in the data
-years =         np.arange(np.min(data.year0), np.max(data.year0)+1, 1)
+years =         np.unique(data.year0)
 
 # find indices of years
 year_indices =  np.array([data.year0 == y for y in years])
 
-# make a list of which years to sample the random walks at
-knot_spacing =  5
-syears =        np.arange(np.min(data.year0), np.max(data.year0)+knot_spacing, knot_spacing)
-
-# make a diagonal matrix for computing the cumulative sum of sample years
-syear_cumsum =  np.zeros((len(syears), len(syears)))
-for i in range(len(syears)):
-    for j in range(len(syears)):
-        if i >= j:
-            syear_cumsum[i,j] = 1
+# make a diagonal matrix for computing the cumulative sum of years
 year_cumsum =  np.zeros((len(years), len(years)))
 for i in range(len(years)):
     for j in range(len(years)):
@@ -155,16 +150,8 @@ state_indices_sp =  sparse.csr_matrix(state_indices).T
 
 # list of state/year pairs
 state_years =   [(s, y) for s in states for y in years]
-state_syears =  [(s, y) for s in states for y in syears]
 
 # list of all RW indices for a state
-syears_by_state =   []
-i = 0
-for s in states:
-    syears_by_state.append([])
-    for y in syears:
-        syears_by_state[s].append(i)
-        i += 1
 years_by_state =   []
 i = 0
 for s in states:
@@ -210,16 +197,8 @@ cause_indices_sp =  sparse.csr_matrix(cause_indices).T
 
 # list of cause/year pairs
 cause_years =   [(c, y) for c in causes for y in years]
-cause_syears =  [(c, y) for c in causes for y in syears]
 
 # list of all RW indices for a cause
-syears_by_cause =   []
-i = 0
-for c in causes:
-    syears_by_cause.append([])
-    for y in syears:
-        syears_by_cause[c].append(i)
-        i += 1
 years_by_cause =   []
 i = 0
 for c in causes:
@@ -242,9 +221,6 @@ year_by_cause_sp =      sparse.csr_matrix(year_by_cause).T
 # indices by cause-year (for applying the interpolated random walk)
 cause_year_indices =    np.array([cause_indices[c] & year_indices[y] for c, y in cause_years])
 cause_year_indices_sp = sparse.csr_matrix(cause_year_indices).T
-
-# map cause year to cause (because we have separate hyperpriors on u[c,t] by c)
-cause_syear_map =       np.array([[cy[0] == c for c in causes] for cy in cause_syears])
 print 'Finished cause indices'
 
 
@@ -530,11 +506,14 @@ print 'Mapped interactions'
 mc.MAP([CS, data_likelihood]).fit(method='fmin_powell', verbose=1)
 mc.MAP([SS, data_likelihood]).fit(method='fmin_powell', verbose=1)
 print 'Mapped drifts'
+for x in CRW + SRW:
+    mc.MAP([x, data_likelihood]).fit(method='fmin_powell', verbose=1)
+print 'Mapped random walks'
 
 # draw some samples
 print 'Beginning sampling'
 #model.sample(iter=200000, burn=50000, thin=150, verbose=True)
-model.sample(iter=70000, burn=50000, thin=200, verbose=True)
+model.sample(iter=20000, burn=10000, thin=20, verbose=True)
 #model.sample(100)
 
 
@@ -600,7 +579,7 @@ pl.rec2csv(output, proj_dir + 'outputs/model results/spatial smoothing/' + mod_n
 # save draws
 draws =     pl.rec_append_fields(
                     rec =   data,
-                    names = ['draw_' + str(i+1) for i in range(100)],
-                    arrs =  [model.trace('estimate')[i] for i in range(100)])
+                    names = ['draw_' + str(i+1) for i in range(500)],
+                    arrs =  [model.trace('estimate')[i] for i in range(500)])
 pl.rec2csv(draws, proj_dir + 'outputs/model results/spatial smoothing/' + mod_name + '_draws_' + str(sex) + '_' + age + '.csv')
 
