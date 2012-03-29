@@ -128,6 +128,12 @@ for i in range(len(syears)):
     for j in range(len(syears)):
         if i >= j:
             syear_cumsum[i,j] = 1
+year_cumsum =  np.zeros((len(years), len(years)))
+for i in range(len(years)):
+    for j in range(len(years)):
+        if i >= j:
+            year_cumsum[i,j] = 1
+
 print 'Finished year indices'
 
 ### make lists/indices by state
@@ -341,20 +347,18 @@ M = mc.gp.Mean(justzero)
 @mc.deterministic
 def SIC(sigma_SI=sigma_SI, rho_SI=rho_SI):
     return mc.gp.Covariance(eval_fun = mc.gp.matern.geo_deg, diff_degree=2., amp=sigma_SI, scale=rho_SI) 
-
-
     
 # state-cause interaction covariance
 @mc.deterministic
 def XIC(sigma_XI=sigma_XI, rho_XI=rho_XI):
-    return mc.gp.cov_funs.matern.geo_deg(long_lat, long_lat, diff_degree=2., amp=sigma_XI, scale=rho_XI, symm=True)
+    return mc.gp.Covariance(eval_fun = mc.gp.matern.geo_deg, diff_degree=2., amp=sigma_XI, scale=rho_XI) 
     
 # state drift covariance
 @mc.deterministic
 def SSC(sigma_SS=sigma_SS, rho_SS=rho_SS):
-    return mc.gp.cov_funs.matern.geo_deg(long_lat, long_lat, diff_degree=2., amp=sigma_SS, scale=rho_SS, symm=True)
+    return mc.gp.Covariance(eval_fun = mc.gp.matern.geo_deg, diff_degree=2., amp=sigma_SS, scale=rho_SS) 
 
-   
+
 
 ### model parameters
 # alpha
@@ -385,172 +389,110 @@ SI =        mc.gp.GPSubmodel(
                 C =     SIC,
                 mesh =  long_lat)
 
-'''
- 
-            
-        cause random intercept
-            CI_{c}  ~ \Normal(0, 1/sigma_{CI}^2)
-        
-        spatial random intercept (BYM smoothing)
-            SI_{s}  ~ \Normal(SU_{s}, 1/sigma_{SI}^2)
-            SU_{s} | SU_{j, j\not=s}    ~ \Normal(\sum(SU_{j})/n_{s}, n_{s}/sigma_{SU}^2)
-            constraint: \sum_{s}(SU) = 0
-                        \sum_{s}(SI) = 0
-        
-        cause/spatial interaction intercept (BYM smoothing over space within cause)
-            XI_{s,c}    ~ \Normal(XU_{s,c}, 1/sigma_{XI}^2)
-            XU_{s,c} | XU_{j,c,j\not=s} ~ \Normal(\sum(XU_{j,c})/n_{s}, n_{s}/sigma_{XU}^2)
-            constraint: \sum_{s}(XU_{c}) = 0
-                        \sum_{s}(XI_{c}) = 0
-     
-        temporal drift by state (ie random slope), (BYM smoothing)
-            SS_{s}  ~ \Normal(SV_{s}, 1/sigma_{SS}^2)
-            SV_{s} | SV_{j, j\not=s}    ~ \Normal(\sum(SV_{j})/n_{s}, n_{s}/sigma_{SV}^2)
-            constraint: \sum_{s}(SS) = 0
-     
-        temporal drift by cause (ie random slope)
-            CS_{c}  ~ \Normal(0, 1/sigma_{CS}^2)
-            constraint: \sum_{c}(CS) = 0
-            
-        random walk in time by state
-            SRW_{s,t}   ~ \Normal(0, 1/sigma_{SRW}^2)
-            constraint: \sum_{t}(SRW_{s}) = 0
-        
-        random walk in time by cause
-            CRW_{c,t}   ~ \Normal(0, 1/sigma_{CRW, c}^2)
-            constraint: \sum_{t}(CRW_{c}) = 0
-'''
-
-
-### model parameters
-# alpha
-alpha =     mc.Normal(
-                name = 'alpha',
-                mu =    0.,
-                tau =   1e-4,
-                value = 0.)
-
-# gamma
-gamma =     mc.Normal(
-                name = 'gamma',
-                mu =    0.,
-                tau =   1e-4,
-                value = 0.)
-
-# cause intercept
-CI =        mc.Normal(
-                name = 'B_c',
-                mu =    0.,
-                tau =   sigma_CI**-2,
-                value = np.zeros(len(causes)))
-
-# state intercept (BYM)
-# structured portion
-SU =        np.zeros(len(states))
-@mc.deterministic
-def SU_mu(SU=SU):
-    return SU
-SU =        mc.Normal(
-                name = 'SU',
-                mu =    0.,
-                tau =   sigma_b_s**-2,
-                value = np.zeros(len(states)))
-
-
-# B_hat[s,c]
-B_sc =      [mc.Normal(
-                name = 'B_sc_%d' % c,
-                mu =    0.,
-                tau =   sigma_b_sc**-2,
-                value = np.zeros(len(states)))
+# state-cause interaction
+XI =        [mc.gp.GPSubmodel(
+                name =  'XI_%s' % c,
+                M =     M,
+                C =     XIC,
+                mesh =  long_lat)
             for c in causes]
 
-# d_hat[s]
-d_s =       mc.Normal(
-                name =  'd_s',
+# cause drifts
+CS =        mc.Normal(
+                name =  'CS',
                 mu =    0.,
-                tau =   sigma_d_s**-2,
-                value = np.zeros(len(states)))
-
-# d[c]
-d_c =       mc.Normal(
-                name =  'd_c',
-                mu =    0.,
-                tau =   sigma_d_c**-2,
+                tau =   sigma_CS**-2,
                 value = np.zeros(len(causes)))
 
-# u[s,t]
-u_s =       mc.Normal(
-                name =  'u_s',
-                mu =    0.,
-                tau =   sigma_u_s**-2,
-                value = np.zeros(len(state_syears)))
+# state slopes
+SS =        mc.gp.GPSubmodel(
+                name =  'SS',
+                M =     M,
+                C =     SSC,
+                mesh =  long_lat)
 
-# u[c,t]
-u_c =       mc.Normal(
-                name =  'u_c',
+# cause random walks
+CRW =       [mc.Normal(
+                name =  'CRW_%s' % c,
                 mu =    0.,
-                tau =   np.dot(cause_syear_map, sigma_u_c**-2).astype('float'),
-                value = np.zeros(len(cause_syears)))
+                tau =   sigma_CRW[c],
+                value = np.zeros(len(years)))
+            for c in causes]
+
+# state random walks
+SRW =       [mc.Normal(
+                name =  'SRW_%s' % s,
+                mu =    0.,
+                tau =   sigma_SRW,
+                value = np.zeros(len(years)))
+            for s in states]
 print 'Created stochastic parameters'
 
 
                     
 ### prediction
-# random intercept by state
-@mc.deterministic
-def intercept_s(B_s=B_s):
-    return  intercept_smoothing_sp.dot(B_s)
-
 # random intercept by cause
 @mc.deterministic
-def intercept_c(B_c=B_c):
-    return  cause_indices_sp.dot(B_c)
+def CI_pred(CI=CI):
+    return  cause_indices_sp.dot(CI)
+
+# random intercept by state
+@mc.deterministic
+def SI_pred(SI=SI):
+    return  state_indices_sp.dot(SI.f_eval)
 
 # random intercept by state/cause interaction
 @mc.deterministic
-def intercept_sc(B_sc=B_sc):
-    return  interaction_smoothing_sp.dot(np.concatenate(B_sc))
+def XI_pred(XI=XI):
+    return  state_cause_indices_sp.dot(np.concatenate([c.f_eval for c in XI]))
 print 'Created intercepts'
 
-# cumulative effect of state drift
+
+
+# overall drift (slope)
 @mc.deterministic
-def drift_s(d_s=d_s):
-    return  drift_smoothing_sp.dot(d_s)
+def gamma_pred(gamma=gamma):
+    return  data.year0.dot(gamma)
 
 # cumulative effect of cause drift
 @mc.deterministic
-def drift_c(d_c=d_c):
-    return  year_by_cause_sp.dot(d_c)
+def CS_pred(CS=CS):
+    return  year_by_cause_sp.dot(CS)
+
+# cumulative effect of state drift
+@mc.deterministic
+def SS_pred(SS=SS):
+    return  year_by_state_sp.dot(SS.f_eval)
 print 'Created drifts'
 
-# cumulative sum of state random walk
-@mc.deterministic
-def rw_s(u_s=u_s):
-    u_s_interp =    np.zeros(len(state_years))
-    for s in states:
-        u_s_interp[years_by_state[s]] = splev(years, splrep(syears, np.dot(syear_cumsum, u_s[syears_by_state[s]])))
-    return  state_year_indices_sp.dot(u_s_interp)
+
 
 # cumulative sum of cause random walk
 @mc.deterministic
-def rw_c(u_c=u_c):
-    u_c_interp =    np.zeros(len(cause_years))
-    for c in causes:
-        u_c_interp[years_by_cause[c]] = splev(years, splrep(syears, np.dot(syear_cumsum, u_c[syears_by_cause[c]])))
-    return  cause_year_indices_sp.dot(u_c_interp)
+def CRW_pred(CRW=CRW):
+    return  cause_year_indices_sp.dot(np.concatenate([np.dot(year_cumsum, crw) for crw in CRW]))
+
+# cumulative sum of state random walk
+@mc.deterministic
+def SRW_pred(SRW=SRW):
+    return  state_year_indices_sp.dot(np.concatenate([np.dot(year_cumsum, srw) for srw in SRW]))
 print 'Created random walks'
 
+
+
 # exposure (population)
-exposure = np.log(data.pop)
+exposure =  np.log(data.pop)
 print 'Created exposure'
 
+
+
 # final prediction
-# y[s,c,t=n]  ~ exp(alpha + gamma*n + exposure + B[s] + psi*avg(B[neighbors[s]]) + B[c] + B[s,c] + eta[c]*avg(B[neighbors[s],c]) + d[s]*n + d[c]*n + sum(u[s,t=0:n]) + sum(u[c,t=0:n]))
 @mc.deterministic
-def estimate(intercept_s=intercept_s, intercept_c=intercept_c, intercept_sc=intercept_sc, alpha=alpha, drift_s=drift_s, drift_c=drift_c, rw_s=rw_s, rw_c=rw_c):
-    return  np.exp(intercept_s + intercept_c + intercept_sc + alpha + drift_s + drift_c + rw_s + rw_c + exposure)
+def estimate(alpha=alpha, gamma=gamma_pred, exposure=exposure, CI=CI_pred, SI=SI_pred, XI=XI_pred, CS=CS_pred, SS=SS_pred, CRW=CRW_pred, SRW=SRW_pred):
+    return  np.exp(alpha + gamma + exposure + CI + SI + XI + CS + SS + CRW + SRW)
 print 'Created estimate'
+
+
 
 # poisson likelihood
 @mc.observed
@@ -562,20 +504,21 @@ print 'Created likelihood'
     
 ### setup MCMC
 # compile variables into a model
-model_vars =    [[sigma_b_s, sigma_b_c, sigma_b_sc, sigma_u_s, sigma_u_c, sigma_d_s, sigma_d_c],
-                [B_s, B_c, B_sc, alpha, u_s, u_c, d_s, d_c],
-                [intercept_s, intercept_c, intercept_sc, drift_s, drift_c, rw_s, rw_c, exposure, estimate],
+model_vars =    [[sigma_CI, sigma_SI, rho_SI, sigma_XI, rho_XI, sigma_CS, sigma_SS, rho_SS, sigma_CRW, sigma_SRW],
+                [alpha, gamma, CI, SI, XI, CS, SS, CRW, SRW],
+                [gamma_pred, CI_pred, SI_pred, XI_pred, CS_pred, SS_pred, CRW_pred, SRW_pred, estimate],
                 [data_likelihood]]
 model =         mc.MCMC(model_vars, db='ram')
 print 'Compiled model'
 
 
 
-# set step method to adaptive metropolis
-for s in model.stochastics:
-    model.use_step_method(mc.AdaptiveMetropolis, s)
+### set step methods
+# use GP AM for GPs
+for s in [SI, SS] + XI:
+    model.use_step_method(mc.AdaptiveMetropolis, s.stochastics)
 print 'Assigned step methods'
-
+'''
 
 ### fit the model
 # use MAP iteratively on alpha, then betas, then drifts, to find reasonable starting values for the chains
@@ -662,3 +605,4 @@ draws =     pl.rec_append_fields(
                     names = ['draw_' + str(i+1) for i in range(100)],
                     arrs =  [model.trace('estimate')[i] for i in range(100)])
 pl.rec2csv(draws, proj_dir + 'outputs/model results/spatial smoothing/' + mod_name + '_draws_' + str(sex) + '_' + age + '.csv')
+'''
