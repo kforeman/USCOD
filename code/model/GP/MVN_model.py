@@ -70,7 +70,7 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing (G
 # sex? (1 = Male, 2 = Female)
 sex =   1
 # age? (Under5, 5to14, 15to29, 30to44, 45to59, 60to74, 75plus)
-age =   '60to74'
+age =   '75plus'
 # model name? (for prefixing output files)
 mod_name =  'GP'
 
@@ -483,13 +483,13 @@ model =         mc.MCMC(model_vars, db='ram')
 print 'Compiled model'
 
 
-'''
+
 ### set step methods
-# use GP AM for GPs
-for s in [SI, SS] + XI:
-    model.use_step_method(mc.AdaptiveMetropolis, s.stochastics)
+# use AM
+for s in model.stochastics:
+    model.use_step_method(mc.AdaptiveMetropolis, s)
 print 'Assigned step methods'
-'''
+
 
 ### fit the model
 # use MAP iteratively on alpha, then betas, then drifts, to find reasonable starting values for the chains
