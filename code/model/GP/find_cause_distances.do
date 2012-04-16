@@ -10,6 +10,9 @@ Purpose:	use PCA to find Euclidean distances between causes
 	if c(os) == "Windows" local proj_dir "D:/projects/`proj'"
 	else local proj_dir "/shared/projects/`proj'"
 
+// how many dimensions (components) to include in the PCA?
+	local num_dim = 3
+
 // load in the data
 	use "`proj_dir'/data/model inputs/state_random_effects_input.dta", clear
 
@@ -39,7 +42,7 @@ Purpose:	use PCA to find Euclidean distances between causes
 	levelsof age_group, l(ages) c
 	foreach s in 1 2 {
 		foreach a of local ages {
-			pca A_* B_* C_* if sex == `s' & age_group == "`a'", components(3)
+			pca A_* B_* C_* if sex == `s' & age_group == "`a'", components(`num_dim')
 			rotate, varimax
 			matrix tmp = e(r_L)
 			mat2csv, matrix(tmp) saving("`proj_dir'/outputs/model results/cause distances/distances_`s'_`a'.csv") replace note("") subnote("")
@@ -59,7 +62,7 @@ Purpose:	use PCA to find Euclidean distances between causes
 			levelsof row, l(rows) c
 			foreach c of local rows {
 				generate `c'_``c'_name' = 0
-				forvalues i = 1/3 {
+				forvalues i = 1/`num_dim' {
 					summarize comp`i' if row == "`c'", meanonly
 					replace `c'_``c'_name' = `c'_``c'_name' + (comp`i' - `r(mean)')^2
 				}
