@@ -27,20 +27,6 @@ Purpose:	use PCA to find Euclidean distances between causes
 // reshape by cause
 	reshape wide ln_rate_, i(sex year stateFips age_group) j(underlying) string
 
-// label with names
-/*	preserve
-	use "`proj_dir'/data/cod/clean/COD maps/uscod_names.dta", clear
-	levelsof uscod, l(uscods) c
-	foreach c of local uscods {
-		levelsof short_name if uscod == "`c'", l(`c'_name) c
-	}
-	restore
-	foreach c of local uscods {
-		capture confirm variable ln_rate_`c'
-		if !_rc rename ln_rate_`c' `c'_``c'_name'
-	}
-*/
-
 // rename variables to only include cause
 	foreach c of local causes {
 		rename ln_rate_`c' `c'
@@ -59,4 +45,30 @@ Purpose:	use PCA to find Euclidean distances between causes
 			mat2csv, matrix(tmp) saving("`proj_dir'/outputs/model results/cause distances/distances_`s'_`a'.csv") replace note("") subnote("")
 		}
 	}
-	// loadingplot
+
+// load in cause names
+	use "`proj_dir'/data/cod/clean/COD maps/uscod_names.dta", clear
+	foreach c of local causes {
+		levelsof short_name if uscod == "`c'", l(`c'_name) c
+	}
+
+// compute distance matrices
+	foreach s in 1 2 {
+		foreach a of local ages {
+			insheet using "`proj_dir'/outputs/model results/cause distances/distances_`s'_`a'.csv", comma clear
+			levelsof row, l(rows) c
+			foreach c of local rows {
+				generate `c'_``c'_name' = 0
+				forvalues i = 1/3 {
+					summarize comp`i' if row == "`c'", meanonly
+					replace `c'_``c'_name' = `c'_``c'_name' + (comp`i' - `r(mean)')^2
+				}
+				replace `c'_``c'_name' = sqrt(`c'_``c'_name')
+				replace `c'_``c'_name' = 0 if row == "`c'"
+				replace row = "`c'_``c'_name'" if row == "`c'"
+			}
+			drop comp*
+			rename row cause
+			outsheet using "`proj_dir'/outputs/model results/cause distances/dist_mat_`s'_`a'.csv", comma replace
+		}
+	}
