@@ -73,7 +73,7 @@ Purpose:	fit smoothed RW with interactions model, adding in spatial smoothing (G
 # sex? (1 = Male, 2 = Female)
 sex =   2
 # age? (Under5, 5to14, 15to29, 30to44, 45to59, 60to74, 75plus)
-age =   'Under5'
+age =   '75plus'
 # model name? (for prefixing output files)
 mod_name =  'GP_cause'
 
@@ -256,8 +256,8 @@ long_lat =          np.array([[state_centers[state_centers.fips==s].longitude[0]
 # open the PCA results csv
 cause_distances =   pl.csv2rec(proj_dir + 'outputs/model results/cause distances/distances_' + str(sex) + '_' + age + '.csv')
 
-# 
-cause_coords =      np.array([[cause_distances[cause_distances.row==c].comp1[0], cause_distances[cause_distances.row==c].comp2[0], cause_distances[cause_distances.row==c].comp3[0]] for c in cause_names])
+# convert into an appropriate coordinates array to compute the euclidean distance on
+cause_coords =      np.array([[cause_distances[cause_distances.cause==c].component_1[0], cause_distances[cause_distances.cause==c].component_2[0], cause_distances[cause_distances.cause==c].component_3[0]] for c in cause_names])
 
 
 
@@ -551,7 +551,7 @@ print 'Mapped random walks'
 # draw some samples
 print 'Beginning sampling'
 #model.sample(iter=200000, burn=50000, thin=150, verbose=True)
-model.sample(iter=20000, burn=10000, thin=20, verbose=True)
+model.sample(iter=20000, burn=10000, thin=50, verbose=True)
 #model.sample(100)
 
 
