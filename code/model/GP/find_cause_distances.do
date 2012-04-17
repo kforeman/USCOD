@@ -35,17 +35,33 @@ Purpose:	use PCA to find Euclidean distances between causes
 		rename ln_rate_`c' `c'
 	}
 
-// load in matrix to csv program
-	do "`proj_dir'/code/model/GP/mat2csv.ado"
-
 // run PCA
 	levelsof age_group, l(ages) c
 	foreach s in 1 2 {
 		foreach a of local ages {
+		// save scaling factors for dimensions (amount of variance explained by a given component)
+			local p = 0
+			forvalues i = 1 / `num_dim' {
+				pca A_* B_* C_* if sex == `s' & age_group == "`a'", components(`i')
+				local prop_expl_`i' = `e(rho)' - `p'
+				local p = `e(rho)'
+			}
+		// run the PCA			
 			pca A_* B_* C_* if sex == `s' & age_group == "`a'", components(`num_dim')
-			rotate, varimax
-			matrix tmp = e(r_L)
-			mat2csv, matrix(tmp) saving("`proj_dir'/outputs/model results/cause distances/distances_`s'_`a'.csv") replace note("") subnote("")
+		// save into Stata
+			matrix tmp = e(L)
+			preserve
+			clear
+			svmat2 tmp, names(col) rnames(cause)
+		// scale the dimensions
+			forvalues i = 1 / `num_dim' {
+				egen component_`i' = std(Comp`i'), mean(0) std(`prop_expl_`i'')
+			}
+		// output the scaled dimensions
+			keep cause component_*
+			order cause
+			outsheet using "`proj_dir'/outputs/model results/cause distances/distances_`s'_`a'.csv", comma replace
+			restore
 		}
 	}
 
@@ -59,19 +75,18 @@ Purpose:	use PCA to find Euclidean distances between causes
 	foreach s in 1 2 {
 		foreach a of local ages {
 			insheet using "`proj_dir'/outputs/model results/cause distances/distances_`s'_`a'.csv", comma clear
-			levelsof row, l(rows) c
-			foreach c of local rows {
+			levelsof cause, l(causes) c
+			foreach c of local causes {
 				generate `c'_``c'_name' = 0
 				forvalues i = 1/`num_dim' {
-					summarize comp`i' if row == "`c'", meanonly
-					replace `c'_``c'_name' = `c'_``c'_name' + (comp`i' - `r(mean)')^2
+					summarize component_`i' if cause == "`c'", meanonly
+					replace `c'_``c'_name' = `c'_``c'_name' + (component_`i' - `r(mean)')^2
 				}
 				replace `c'_``c'_name' = sqrt(`c'_``c'_name')
-				replace `c'_``c'_name' = 0 if row == "`c'"
-				replace row = "`c'_``c'_name'" if row == "`c'"
+				replace `c'_``c'_name' = 0 if cause == "`c'"
+				replace cause = "`c'_``c'_name'" if cause == "`c'"
 			}
-			drop comp*
-			rename row cause
+			drop component_*
 			outsheet using "`proj_dir'/outputs/model results/cause distances/dist_mat_`s'_`a'.csv", comma replace
 		}
 	}
