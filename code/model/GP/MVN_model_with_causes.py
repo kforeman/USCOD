@@ -453,7 +453,7 @@ def SI_pred(SI=SI):
 # random intercept by state/cause interaction
 @mc.deterministic
 def XI_pred(XI=XI):
-    return  state_cause_indices_sp.dot(np.concatenate(XI) - np.concatenate(XI).mean())
+    return  state_cause_indices_sp.dot(np.concatenate([xi - xi.mean() for xi in XI]))
 print 'Created intercepts'
 
 
